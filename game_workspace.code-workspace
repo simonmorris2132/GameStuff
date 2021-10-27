@@ -1,18 +1,6 @@
 {
 	"folders": [
 		{
-			"path": "Test"
-		},
-		{
-			"path": "Pacman"
-		},
-		{
-			"path": "SnakeFeeder"
-		},
-		{
-			"path": "BrickBreaker"
-		},
-		{
 			"name": "GameStuff",
 			"path": "."
 		}
