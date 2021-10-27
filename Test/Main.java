@@ -28,4 +28,4 @@ public class Main {
     }
 }
 
-/* This is just to test out different control flow statements or to practice the basics. ignore. */
+/* This is just to test out different control flow statements or to practice the basics. ignore. lolzies */
