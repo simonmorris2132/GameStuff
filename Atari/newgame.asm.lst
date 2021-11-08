@@ -1,4 +1,4 @@
-------- FILE newgame.dasm LEVEL 1 PASS 2
+------- FILE newgame.asm LEVEL 1 PASS 2
       1  10000					       processor	6502
       2  10000 ????
       3  10000 ????				       include	"vcs.h"
