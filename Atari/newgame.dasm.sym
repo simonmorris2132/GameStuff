@@ -1,0 +1,8 @@
+--- Symbol List (sorted by symbol)
+COLUBK                   0000 ????         (R )
+Reset                    f000              (R )
+StartOfFrame             f000              (R )
+VBLANK                   0000 ????         (R )
+VSYNC                    0000 ????         (R )
+WSYNC                    0000 ????         (R )
+--- End of Symbol List.

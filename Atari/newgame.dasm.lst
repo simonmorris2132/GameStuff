@@ -1,0 +1,2546 @@
+------- FILE newgame.dasm LEVEL 1 PASS 2
+      1  10000					       processor	6502
+      2  10000 ????
+      3  10000 ????				       include	"vcs.h"
+      4  10000 ????
+      5  10000 ????				       include	"macro.h"
+      6  10000 ????
+      7  10000 ????
+      8  10000 ????
+      9  10000 ????				       SEG
+     10  10000 ????
+     11  f000					      ORG	$F000
+     12  f000
+     13  f000
+     14  f000
+     15  f000				   Reset
+     16  f000
+     17  f000				   StartOfFrame
+     18  f000
+     19  f000
+     20  f000
+     21  f000							; Start of vertical blank processing
+     22  f000
+     23  f000
+     24  f000
+     25  f000		       a9 00		      lda	#0
+     26  f002
+     27  f002		       8d 00 00 	      sta	VBLANK
+     28  f005
+     29  f005
+     30  f005
+     31  f005		       a9 02		      lda	#2
+     32  f007
+     33  f007		       8d 00 00 	      sta	VSYNC
+     34  f00a
+     35  f00a
+     36  f00a
+     37  f00a							; 3 scanlines of VSYNCH signal...
+     38  f00a
+     39  f00a
+     40  f00a
+     41  f00a		       8d 00 00 	      sta	WSYNC
+     42  f00d
+     43  f00d		       8d 00 00 	      sta	WSYNC
+     44  f010
+     45  f010		       8d 00 00 	      sta	WSYNC
+     46  f013
+     47  f013
+     48  f013
+     49  f013		       a9 00		      lda	#0
+     50  f015
+     51  f015		       8d 00 00 	      sta	VSYNC
+     52  f018
+     53  f018
+     54  f018
+     55  f018							; 37 scanlines of vertical blank...
+     56  f018
+     57  f018
+     58  f018
+     59  f018		       8d 00 00 	      sta	WSYNC
+     60  f01b
+     61  f01b		       8d 00 00 	      sta	WSYNC
+     62  f01e
+     63  f01e		       8d 00 00 	      sta	WSYNC
+     64  f021
+     65  f021		       8d 00 00 	      sta	WSYNC
+     66  f024
+     67  f024		       8d 00 00 	      sta	WSYNC
+     68  f027
+     69  f027		       8d 00 00 	      sta	WSYNC
+     70  f02a
+     71  f02a		       8d 00 00 	      sta	WSYNC
+     72  f02d
+     73  f02d		       8d 00 00 	      sta	WSYNC
+     74  f030
+     75  f030		       8d 00 00 	      sta	WSYNC
+     76  f033
+     77  f033		       8d 00 00 	      sta	WSYNC
+     78  f036
+     79  f036		       8d 00 00 	      sta	WSYNC
+     80  f039
+     81  f039		       8d 00 00 	      sta	WSYNC
+     82  f03c
+     83  f03c		       8d 00 00 	      sta	WSYNC
+     84  f03f
+     85  f03f		       8d 00 00 	      sta	WSYNC
+     86  f042
+     87  f042		       8d 00 00 	      sta	WSYNC
+     88  f045
+     89  f045		       8d 00 00 	      sta	WSYNC
+     90  f048
+     91  f048		       8d 00 00 	      sta	WSYNC
+     92  f04b
+     93  f04b		       8d 00 00 	      sta	WSYNC
+     94  f04e
+     95  f04e		       8d 00 00 	      sta	WSYNC
+     96  f051
+     97  f051		       8d 00 00 	      sta	WSYNC
+     98  f054
+     99  f054		       8d 00 00 	      sta	WSYNC
+    100  f057
+    101  f057		       8d 00 00 	      sta	WSYNC
+    102  f05a
+    103  f05a		       8d 00 00 	      sta	WSYNC
+    104  f05d
+    105  f05d		       8d 00 00 	      sta	WSYNC
+    106  f060
+    107  f060		       8d 00 00 	      sta	WSYNC
+    108  f063
+    109  f063		       8d 00 00 	      sta	WSYNC
+    110  f066
+    111  f066		       8d 00 00 	      sta	WSYNC
+    112  f069
+    113  f069		       8d 00 00 	      sta	WSYNC
+    114  f06c
+    115  f06c		       8d 00 00 	      sta	WSYNC
+    116  f06f
+    117  f06f		       8d 00 00 	      sta	WSYNC
+    118  f072
+    119  f072		       8d 00 00 	      sta	WSYNC
+    120  f075
+    121  f075		       8d 00 00 	      sta	WSYNC
+    122  f078
+    123  f078		       8d 00 00 	      sta	WSYNC
+    124  f07b
+    125  f07b		       8d 00 00 	      sta	WSYNC
+    126  f07e
+    127  f07e		       8d 00 00 	      sta	WSYNC
+    128  f081
+    129  f081		       8d 00 00 	      sta	WSYNC
+    130  f084
+    131  f084		       8d 00 00 	      sta	WSYNC
+    132  f087
+    133  f087
+    134  f087
+    135  f087
+    136  f087
+    137  f087
+    138  f087
+    139  f087							; 192 scanlines of picture...
+    140  f087
+    141  f087
+    142  f087
+    143  f087		       a2 00		      ldx	#0
+    144  f089
+    145  f089					      REPEAT	192	; scanlines
+    146  f089
+    147  f089
+    148  f089
+    149  f089		       e8		      inx
+    150  f08a
+    151  f08a		       8e 00 00 	      stx	COLUBK
+    152  f08d
+    153  f08d		       8d 00 00 	      sta	WSYNC
+    154  f090
+    155  f090
+    156  f090
+    145  f090					      REPEND
+    146  f090
+    147  f090
+    148  f090
+    149  f090		       e8		      inx
+    150  f091
+    151  f091		       8e 00 00 	      stx	COLUBK
+    152  f094
+    153  f094		       8d 00 00 	      sta	WSYNC
+    154  f097
+    155  f097
+    156  f097
+    145  f097					      REPEND
+    146  f097
+    147  f097
+    148  f097
+    149  f097		       e8		      inx
+    150  f098
+    151  f098		       8e 00 00 	      stx	COLUBK
+    152  f09b
+    153  f09b		       8d 00 00 	      sta	WSYNC
+    154  f09e
+    155  f09e
+    156  f09e
+    145  f09e					      REPEND
+    146  f09e
+    147  f09e
+    148  f09e
+    149  f09e		       e8		      inx
+    150  f09f
+    151  f09f		       8e 00 00 	      stx	COLUBK
+    152  f0a2
+    153  f0a2		       8d 00 00 	      sta	WSYNC
+    154  f0a5
+    155  f0a5
+    156  f0a5
+    145  f0a5					      REPEND
+    146  f0a5
+    147  f0a5
+    148  f0a5
+    149  f0a5		       e8		      inx
+    150  f0a6
+    151  f0a6		       8e 00 00 	      stx	COLUBK
+    152  f0a9
+    153  f0a9		       8d 00 00 	      sta	WSYNC
+    154  f0ac
+    155  f0ac
+    156  f0ac
+    145  f0ac					      REPEND
+    146  f0ac
+    147  f0ac
+    148  f0ac
+    149  f0ac		       e8		      inx
+    150  f0ad
+    151  f0ad		       8e 00 00 	      stx	COLUBK
+    152  f0b0
+    153  f0b0		       8d 00 00 	      sta	WSYNC
+    154  f0b3
+    155  f0b3
+    156  f0b3
+    145  f0b3					      REPEND
+    146  f0b3
+    147  f0b3
+    148  f0b3
+    149  f0b3		       e8		      inx
+    150  f0b4
+    151  f0b4		       8e 00 00 	      stx	COLUBK
+    152  f0b7
+    153  f0b7		       8d 00 00 	      sta	WSYNC
+    154  f0ba
+    155  f0ba
+    156  f0ba
+    145  f0ba					      REPEND
+    146  f0ba
+    147  f0ba
+    148  f0ba
+    149  f0ba		       e8		      inx
+    150  f0bb
+    151  f0bb		       8e 00 00 	      stx	COLUBK
+    152  f0be
+    153  f0be		       8d 00 00 	      sta	WSYNC
+    154  f0c1
+    155  f0c1
+    156  f0c1
+    145  f0c1					      REPEND
+    146  f0c1
+    147  f0c1
+    148  f0c1
+    149  f0c1		       e8		      inx
+    150  f0c2
+    151  f0c2		       8e 00 00 	      stx	COLUBK
+    152  f0c5
+    153  f0c5		       8d 00 00 	      sta	WSYNC
+    154  f0c8
+    155  f0c8
+    156  f0c8
+    145  f0c8					      REPEND
+    146  f0c8
+    147  f0c8
+    148  f0c8
+    149  f0c8		       e8		      inx
+    150  f0c9
+    151  f0c9		       8e 00 00 	      stx	COLUBK
+    152  f0cc
+    153  f0cc		       8d 00 00 	      sta	WSYNC
+    154  f0cf
+    155  f0cf
+    156  f0cf
+    145  f0cf					      REPEND
+    146  f0cf
+    147  f0cf
+    148  f0cf
+    149  f0cf		       e8		      inx
+    150  f0d0
+    151  f0d0		       8e 00 00 	      stx	COLUBK
+    152  f0d3
+    153  f0d3		       8d 00 00 	      sta	WSYNC
+    154  f0d6
+    155  f0d6
+    156  f0d6
+    145  f0d6					      REPEND
+    146  f0d6
+    147  f0d6
+    148  f0d6
+    149  f0d6		       e8		      inx
+    150  f0d7
+    151  f0d7		       8e 00 00 	      stx	COLUBK
+    152  f0da
+    153  f0da		       8d 00 00 	      sta	WSYNC
+    154  f0dd
+    155  f0dd
+    156  f0dd
+    145  f0dd					      REPEND
+    146  f0dd
+    147  f0dd
+    148  f0dd
+    149  f0dd		       e8		      inx
+    150  f0de
+    151  f0de		       8e 00 00 	      stx	COLUBK
+    152  f0e1
+    153  f0e1		       8d 00 00 	      sta	WSYNC
+    154  f0e4
+    155  f0e4
+    156  f0e4
+    145  f0e4					      REPEND
+    146  f0e4
+    147  f0e4
+    148  f0e4
+    149  f0e4		       e8		      inx
+    150  f0e5
+    151  f0e5		       8e 00 00 	      stx	COLUBK
+    152  f0e8
+    153  f0e8		       8d 00 00 	      sta	WSYNC
+    154  f0eb
+    155  f0eb
+    156  f0eb
+    145  f0eb					      REPEND
+    146  f0eb
+    147  f0eb
+    148  f0eb
+    149  f0eb		       e8		      inx
+    150  f0ec
+    151  f0ec		       8e 00 00 	      stx	COLUBK
+    152  f0ef
+    153  f0ef		       8d 00 00 	      sta	WSYNC
+    154  f0f2
+    155  f0f2
+    156  f0f2
+    145  f0f2					      REPEND
+    146  f0f2
+    147  f0f2
+    148  f0f2
+    149  f0f2		       e8		      inx
+    150  f0f3
+    151  f0f3		       8e 00 00 	      stx	COLUBK
+    152  f0f6
+    153  f0f6		       8d 00 00 	      sta	WSYNC
+    154  f0f9
+    155  f0f9
+    156  f0f9
+    145  f0f9					      REPEND
+    146  f0f9
+    147  f0f9
+    148  f0f9
+    149  f0f9		       e8		      inx
+    150  f0fa
+    151  f0fa		       8e 00 00 	      stx	COLUBK
+    152  f0fd
+    153  f0fd		       8d 00 00 	      sta	WSYNC
+    154  f100
+    155  f100
+    156  f100
+    145  f100					      REPEND
+    146  f100
+    147  f100
+    148  f100
+    149  f100		       e8		      inx
+    150  f101
+    151  f101		       8e 00 00 	      stx	COLUBK
+    152  f104
+    153  f104		       8d 00 00 	      sta	WSYNC
+    154  f107
+    155  f107
+    156  f107
+    145  f107					      REPEND
+    146  f107
+    147  f107
+    148  f107
+    149  f107		       e8		      inx
+    150  f108
+    151  f108		       8e 00 00 	      stx	COLUBK
+    152  f10b
+    153  f10b		       8d 00 00 	      sta	WSYNC
+    154  f10e
+    155  f10e
+    156  f10e
+    145  f10e					      REPEND
+    146  f10e
+    147  f10e
+    148  f10e
+    149  f10e		       e8		      inx
+    150  f10f
+    151  f10f		       8e 00 00 	      stx	COLUBK
+    152  f112
+    153  f112		       8d 00 00 	      sta	WSYNC
+    154  f115
+    155  f115
+    156  f115
+    145  f115					      REPEND
+    146  f115
+    147  f115
+    148  f115
+    149  f115		       e8		      inx
+    150  f116
+    151  f116		       8e 00 00 	      stx	COLUBK
+    152  f119
+    153  f119		       8d 00 00 	      sta	WSYNC
+    154  f11c
+    155  f11c
+    156  f11c
+    145  f11c					      REPEND
+    146  f11c
+    147  f11c
+    148  f11c
+    149  f11c		       e8		      inx
+    150  f11d
+    151  f11d		       8e 00 00 	      stx	COLUBK
+    152  f120
+    153  f120		       8d 00 00 	      sta	WSYNC
+    154  f123
+    155  f123
+    156  f123
+    145  f123					      REPEND
+    146  f123
+    147  f123
+    148  f123
+    149  f123		       e8		      inx
+    150  f124
+    151  f124		       8e 00 00 	      stx	COLUBK
+    152  f127
+    153  f127		       8d 00 00 	      sta	WSYNC
+    154  f12a
+    155  f12a
+    156  f12a
+    145  f12a					      REPEND
+    146  f12a
+    147  f12a
+    148  f12a
+    149  f12a		       e8		      inx
+    150  f12b
+    151  f12b		       8e 00 00 	      stx	COLUBK
+    152  f12e
+    153  f12e		       8d 00 00 	      sta	WSYNC
+    154  f131
+    155  f131
+    156  f131
+    145  f131					      REPEND
+    146  f131
+    147  f131
+    148  f131
+    149  f131		       e8		      inx
+    150  f132
+    151  f132		       8e 00 00 	      stx	COLUBK
+    152  f135
+    153  f135		       8d 00 00 	      sta	WSYNC
+    154  f138
+    155  f138
+    156  f138
+    145  f138					      REPEND
+    146  f138
+    147  f138
+    148  f138
+    149  f138		       e8		      inx
+    150  f139
+    151  f139		       8e 00 00 	      stx	COLUBK
+    152  f13c
+    153  f13c		       8d 00 00 	      sta	WSYNC
+    154  f13f
+    155  f13f
+    156  f13f
+    145  f13f					      REPEND
+    146  f13f
+    147  f13f
+    148  f13f
+    149  f13f		       e8		      inx
+    150  f140
+    151  f140		       8e 00 00 	      stx	COLUBK
+    152  f143
+    153  f143		       8d 00 00 	      sta	WSYNC
+    154  f146
+    155  f146
+    156  f146
+    145  f146					      REPEND
+    146  f146
+    147  f146
+    148  f146
+    149  f146		       e8		      inx
+    150  f147
+    151  f147		       8e 00 00 	      stx	COLUBK
+    152  f14a
+    153  f14a		       8d 00 00 	      sta	WSYNC
+    154  f14d
+    155  f14d
+    156  f14d
+    145  f14d					      REPEND
+    146  f14d
+    147  f14d
+    148  f14d
+    149  f14d		       e8		      inx
+    150  f14e
+    151  f14e		       8e 00 00 	      stx	COLUBK
+    152  f151
+    153  f151		       8d 00 00 	      sta	WSYNC
+    154  f154
+    155  f154
+    156  f154
+    145  f154					      REPEND
+    146  f154
+    147  f154
+    148  f154
+    149  f154		       e8		      inx
+    150  f155
+    151  f155		       8e 00 00 	      stx	COLUBK
+    152  f158
+    153  f158		       8d 00 00 	      sta	WSYNC
+    154  f15b
+    155  f15b
+    156  f15b
+    145  f15b					      REPEND
+    146  f15b
+    147  f15b
+    148  f15b
+    149  f15b		       e8		      inx
+    150  f15c
+    151  f15c		       8e 00 00 	      stx	COLUBK
+    152  f15f
+    153  f15f		       8d 00 00 	      sta	WSYNC
+    154  f162
+    155  f162
+    156  f162
+    145  f162					      REPEND
+    146  f162
+    147  f162
+    148  f162
+    149  f162		       e8		      inx
+    150  f163
+    151  f163		       8e 00 00 	      stx	COLUBK
+    152  f166
+    153  f166		       8d 00 00 	      sta	WSYNC
+    154  f169
+    155  f169
+    156  f169
+    145  f169					      REPEND
+    146  f169
+    147  f169
+    148  f169
+    149  f169		       e8		      inx
+    150  f16a
+    151  f16a		       8e 00 00 	      stx	COLUBK
+    152  f16d
+    153  f16d		       8d 00 00 	      sta	WSYNC
+    154  f170
+    155  f170
+    156  f170
+    145  f170					      REPEND
+    146  f170
+    147  f170
+    148  f170
+    149  f170		       e8		      inx
+    150  f171
+    151  f171		       8e 00 00 	      stx	COLUBK
+    152  f174
+    153  f174		       8d 00 00 	      sta	WSYNC
+    154  f177
+    155  f177
+    156  f177
+    145  f177					      REPEND
+    146  f177
+    147  f177
+    148  f177
+    149  f177		       e8		      inx
+    150  f178
+    151  f178		       8e 00 00 	      stx	COLUBK
+    152  f17b
+    153  f17b		       8d 00 00 	      sta	WSYNC
+    154  f17e
+    155  f17e
+    156  f17e
+    145  f17e					      REPEND
+    146  f17e
+    147  f17e
+    148  f17e
+    149  f17e		       e8		      inx
+    150  f17f
+    151  f17f		       8e 00 00 	      stx	COLUBK
+    152  f182
+    153  f182		       8d 00 00 	      sta	WSYNC
+    154  f185
+    155  f185
+    156  f185
+    145  f185					      REPEND
+    146  f185
+    147  f185
+    148  f185
+    149  f185		       e8		      inx
+    150  f186
+    151  f186		       8e 00 00 	      stx	COLUBK
+    152  f189
+    153  f189		       8d 00 00 	      sta	WSYNC
+    154  f18c
+    155  f18c
+    156  f18c
+    145  f18c					      REPEND
+    146  f18c
+    147  f18c
+    148  f18c
+    149  f18c		       e8		      inx
+    150  f18d
+    151  f18d		       8e 00 00 	      stx	COLUBK
+    152  f190
+    153  f190		       8d 00 00 	      sta	WSYNC
+    154  f193
+    155  f193
+    156  f193
+    145  f193					      REPEND
+    146  f193
+    147  f193
+    148  f193
+    149  f193		       e8		      inx
+    150  f194
+    151  f194		       8e 00 00 	      stx	COLUBK
+    152  f197
+    153  f197		       8d 00 00 	      sta	WSYNC
+    154  f19a
+    155  f19a
+    156  f19a
+    145  f19a					      REPEND
+    146  f19a
+    147  f19a
+    148  f19a
+    149  f19a		       e8		      inx
+    150  f19b
+    151  f19b		       8e 00 00 	      stx	COLUBK
+    152  f19e
+    153  f19e		       8d 00 00 	      sta	WSYNC
+    154  f1a1
+    155  f1a1
+    156  f1a1
+    145  f1a1					      REPEND
+    146  f1a1
+    147  f1a1
+    148  f1a1
+    149  f1a1		       e8		      inx
+    150  f1a2
+    151  f1a2		       8e 00 00 	      stx	COLUBK
+    152  f1a5
+    153  f1a5		       8d 00 00 	      sta	WSYNC
+    154  f1a8
+    155  f1a8
+    156  f1a8
+    145  f1a8					      REPEND
+    146  f1a8
+    147  f1a8
+    148  f1a8
+    149  f1a8		       e8		      inx
+    150  f1a9
+    151  f1a9		       8e 00 00 	      stx	COLUBK
+    152  f1ac
+    153  f1ac		       8d 00 00 	      sta	WSYNC
+    154  f1af
+    155  f1af
+    156  f1af
+    145  f1af					      REPEND
+    146  f1af
+    147  f1af
+    148  f1af
+    149  f1af		       e8		      inx
+    150  f1b0
+    151  f1b0		       8e 00 00 	      stx	COLUBK
+    152  f1b3
+    153  f1b3		       8d 00 00 	      sta	WSYNC
+    154  f1b6
+    155  f1b6
+    156  f1b6
+    145  f1b6					      REPEND
+    146  f1b6
+    147  f1b6
+    148  f1b6
+    149  f1b6		       e8		      inx
+    150  f1b7
+    151  f1b7		       8e 00 00 	      stx	COLUBK
+    152  f1ba
+    153  f1ba		       8d 00 00 	      sta	WSYNC
+    154  f1bd
+    155  f1bd
+    156  f1bd
+    145  f1bd					      REPEND
+    146  f1bd
+    147  f1bd
+    148  f1bd
+    149  f1bd		       e8		      inx
+    150  f1be
+    151  f1be		       8e 00 00 	      stx	COLUBK
+    152  f1c1
+    153  f1c1		       8d 00 00 	      sta	WSYNC
+    154  f1c4
+    155  f1c4
+    156  f1c4
+    145  f1c4					      REPEND
+    146  f1c4
+    147  f1c4
+    148  f1c4
+    149  f1c4		       e8		      inx
+    150  f1c5
+    151  f1c5		       8e 00 00 	      stx	COLUBK
+    152  f1c8
+    153  f1c8		       8d 00 00 	      sta	WSYNC
+    154  f1cb
+    155  f1cb
+    156  f1cb
+    145  f1cb					      REPEND
+    146  f1cb
+    147  f1cb
+    148  f1cb
+    149  f1cb		       e8		      inx
+    150  f1cc
+    151  f1cc		       8e 00 00 	      stx	COLUBK
+    152  f1cf
+    153  f1cf		       8d 00 00 	      sta	WSYNC
+    154  f1d2
+    155  f1d2
+    156  f1d2
+    145  f1d2					      REPEND
+    146  f1d2
+    147  f1d2
+    148  f1d2
+    149  f1d2		       e8		      inx
+    150  f1d3
+    151  f1d3		       8e 00 00 	      stx	COLUBK
+    152  f1d6
+    153  f1d6		       8d 00 00 	      sta	WSYNC
+    154  f1d9
+    155  f1d9
+    156  f1d9
+    145  f1d9					      REPEND
+    146  f1d9
+    147  f1d9
+    148  f1d9
+    149  f1d9		       e8		      inx
+    150  f1da
+    151  f1da		       8e 00 00 	      stx	COLUBK
+    152  f1dd
+    153  f1dd		       8d 00 00 	      sta	WSYNC
+    154  f1e0
+    155  f1e0
+    156  f1e0
+    145  f1e0					      REPEND
+    146  f1e0
+    147  f1e0
+    148  f1e0
+    149  f1e0		       e8		      inx
+    150  f1e1
+    151  f1e1		       8e 00 00 	      stx	COLUBK
+    152  f1e4
+    153  f1e4		       8d 00 00 	      sta	WSYNC
+    154  f1e7
+    155  f1e7
+    156  f1e7
+    145  f1e7					      REPEND
+    146  f1e7
+    147  f1e7
+    148  f1e7
+    149  f1e7		       e8		      inx
+    150  f1e8
+    151  f1e8		       8e 00 00 	      stx	COLUBK
+    152  f1eb
+    153  f1eb		       8d 00 00 	      sta	WSYNC
+    154  f1ee
+    155  f1ee
+    156  f1ee
+    145  f1ee					      REPEND
+    146  f1ee
+    147  f1ee
+    148  f1ee
+    149  f1ee		       e8		      inx
+    150  f1ef
+    151  f1ef		       8e 00 00 	      stx	COLUBK
+    152  f1f2
+    153  f1f2		       8d 00 00 	      sta	WSYNC
+    154  f1f5
+    155  f1f5
+    156  f1f5
+    145  f1f5					      REPEND
+    146  f1f5
+    147  f1f5
+    148  f1f5
+    149  f1f5		       e8		      inx
+    150  f1f6
+    151  f1f6		       8e 00 00 	      stx	COLUBK
+    152  f1f9
+    153  f1f9		       8d 00 00 	      sta	WSYNC
+    154  f1fc
+    155  f1fc
+    156  f1fc
+    145  f1fc					      REPEND
+    146  f1fc
+    147  f1fc
+    148  f1fc
+    149  f1fc		       e8		      inx
+    150  f1fd
+    151  f1fd		       8e 00 00 	      stx	COLUBK
+    152  f200
+    153  f200		       8d 00 00 	      sta	WSYNC
+    154  f203
+    155  f203
+    156  f203
+    145  f203					      REPEND
+    146  f203
+    147  f203
+    148  f203
+    149  f203		       e8		      inx
+    150  f204
+    151  f204		       8e 00 00 	      stx	COLUBK
+    152  f207
+    153  f207		       8d 00 00 	      sta	WSYNC
+    154  f20a
+    155  f20a
+    156  f20a
+    145  f20a					      REPEND
+    146  f20a
+    147  f20a
+    148  f20a
+    149  f20a		       e8		      inx
+    150  f20b
+    151  f20b		       8e 00 00 	      stx	COLUBK
+    152  f20e
+    153  f20e		       8d 00 00 	      sta	WSYNC
+    154  f211
+    155  f211
+    156  f211
+    145  f211					      REPEND
+    146  f211
+    147  f211
+    148  f211
+    149  f211		       e8		      inx
+    150  f212
+    151  f212		       8e 00 00 	      stx	COLUBK
+    152  f215
+    153  f215		       8d 00 00 	      sta	WSYNC
+    154  f218
+    155  f218
+    156  f218
+    145  f218					      REPEND
+    146  f218
+    147  f218
+    148  f218
+    149  f218		       e8		      inx
+    150  f219
+    151  f219		       8e 00 00 	      stx	COLUBK
+    152  f21c
+    153  f21c		       8d 00 00 	      sta	WSYNC
+    154  f21f
+    155  f21f
+    156  f21f
+    145  f21f					      REPEND
+    146  f21f
+    147  f21f
+    148  f21f
+    149  f21f		       e8		      inx
+    150  f220
+    151  f220		       8e 00 00 	      stx	COLUBK
+    152  f223
+    153  f223		       8d 00 00 	      sta	WSYNC
+    154  f226
+    155  f226
+    156  f226
+    145  f226					      REPEND
+    146  f226
+    147  f226
+    148  f226
+    149  f226		       e8		      inx
+    150  f227
+    151  f227		       8e 00 00 	      stx	COLUBK
+    152  f22a
+    153  f22a		       8d 00 00 	      sta	WSYNC
+    154  f22d
+    155  f22d
+    156  f22d
+    145  f22d					      REPEND
+    146  f22d
+    147  f22d
+    148  f22d
+    149  f22d		       e8		      inx
+    150  f22e
+    151  f22e		       8e 00 00 	      stx	COLUBK
+    152  f231
+    153  f231		       8d 00 00 	      sta	WSYNC
+    154  f234
+    155  f234
+    156  f234
+    145  f234					      REPEND
+    146  f234
+    147  f234
+    148  f234
+    149  f234		       e8		      inx
+    150  f235
+    151  f235		       8e 00 00 	      stx	COLUBK
+    152  f238
+    153  f238		       8d 00 00 	      sta	WSYNC
+    154  f23b
+    155  f23b
+    156  f23b
+    145  f23b					      REPEND
+    146  f23b
+    147  f23b
+    148  f23b
+    149  f23b		       e8		      inx
+    150  f23c
+    151  f23c		       8e 00 00 	      stx	COLUBK
+    152  f23f
+    153  f23f		       8d 00 00 	      sta	WSYNC
+    154  f242
+    155  f242
+    156  f242
+    145  f242					      REPEND
+    146  f242
+    147  f242
+    148  f242
+    149  f242		       e8		      inx
+    150  f243
+    151  f243		       8e 00 00 	      stx	COLUBK
+    152  f246
+    153  f246		       8d 00 00 	      sta	WSYNC
+    154  f249
+    155  f249
+    156  f249
+    145  f249					      REPEND
+    146  f249
+    147  f249
+    148  f249
+    149  f249		       e8		      inx
+    150  f24a
+    151  f24a		       8e 00 00 	      stx	COLUBK
+    152  f24d
+    153  f24d		       8d 00 00 	      sta	WSYNC
+    154  f250
+    155  f250
+    156  f250
+    145  f250					      REPEND
+    146  f250
+    147  f250
+    148  f250
+    149  f250		       e8		      inx
+    150  f251
+    151  f251		       8e 00 00 	      stx	COLUBK
+    152  f254
+    153  f254		       8d 00 00 	      sta	WSYNC
+    154  f257
+    155  f257
+    156  f257
+    145  f257					      REPEND
+    146  f257
+    147  f257
+    148  f257
+    149  f257		       e8		      inx
+    150  f258
+    151  f258		       8e 00 00 	      stx	COLUBK
+    152  f25b
+    153  f25b		       8d 00 00 	      sta	WSYNC
+    154  f25e
+    155  f25e
+    156  f25e
+    145  f25e					      REPEND
+    146  f25e
+    147  f25e
+    148  f25e
+    149  f25e		       e8		      inx
+    150  f25f
+    151  f25f		       8e 00 00 	      stx	COLUBK
+    152  f262
+    153  f262		       8d 00 00 	      sta	WSYNC
+    154  f265
+    155  f265
+    156  f265
+    145  f265					      REPEND
+    146  f265
+    147  f265
+    148  f265
+    149  f265		       e8		      inx
+    150  f266
+    151  f266		       8e 00 00 	      stx	COLUBK
+    152  f269
+    153  f269		       8d 00 00 	      sta	WSYNC
+    154  f26c
+    155  f26c
+    156  f26c
+    145  f26c					      REPEND
+    146  f26c
+    147  f26c
+    148  f26c
+    149  f26c		       e8		      inx
+    150  f26d
+    151  f26d		       8e 00 00 	      stx	COLUBK
+    152  f270
+    153  f270		       8d 00 00 	      sta	WSYNC
+    154  f273
+    155  f273
+    156  f273
+    145  f273					      REPEND
+    146  f273
+    147  f273
+    148  f273
+    149  f273		       e8		      inx
+    150  f274
+    151  f274		       8e 00 00 	      stx	COLUBK
+    152  f277
+    153  f277		       8d 00 00 	      sta	WSYNC
+    154  f27a
+    155  f27a
+    156  f27a
+    145  f27a					      REPEND
+    146  f27a
+    147  f27a
+    148  f27a
+    149  f27a		       e8		      inx
+    150  f27b
+    151  f27b		       8e 00 00 	      stx	COLUBK
+    152  f27e
+    153  f27e		       8d 00 00 	      sta	WSYNC
+    154  f281
+    155  f281
+    156  f281
+    145  f281					      REPEND
+    146  f281
+    147  f281
+    148  f281
+    149  f281		       e8		      inx
+    150  f282
+    151  f282		       8e 00 00 	      stx	COLUBK
+    152  f285
+    153  f285		       8d 00 00 	      sta	WSYNC
+    154  f288
+    155  f288
+    156  f288
+    145  f288					      REPEND
+    146  f288
+    147  f288
+    148  f288
+    149  f288		       e8		      inx
+    150  f289
+    151  f289		       8e 00 00 	      stx	COLUBK
+    152  f28c
+    153  f28c		       8d 00 00 	      sta	WSYNC
+    154  f28f
+    155  f28f
+    156  f28f
+    145  f28f					      REPEND
+    146  f28f
+    147  f28f
+    148  f28f
+    149  f28f		       e8		      inx
+    150  f290
+    151  f290		       8e 00 00 	      stx	COLUBK
+    152  f293
+    153  f293		       8d 00 00 	      sta	WSYNC
+    154  f296
+    155  f296
+    156  f296
+    145  f296					      REPEND
+    146  f296
+    147  f296
+    148  f296
+    149  f296		       e8		      inx
+    150  f297
+    151  f297		       8e 00 00 	      stx	COLUBK
+    152  f29a
+    153  f29a		       8d 00 00 	      sta	WSYNC
+    154  f29d
+    155  f29d
+    156  f29d
+    145  f29d					      REPEND
+    146  f29d
+    147  f29d
+    148  f29d
+    149  f29d		       e8		      inx
+    150  f29e
+    151  f29e		       8e 00 00 	      stx	COLUBK
+    152  f2a1
+    153  f2a1		       8d 00 00 	      sta	WSYNC
+    154  f2a4
+    155  f2a4
+    156  f2a4
+    145  f2a4					      REPEND
+    146  f2a4
+    147  f2a4
+    148  f2a4
+    149  f2a4		       e8		      inx
+    150  f2a5
+    151  f2a5		       8e 00 00 	      stx	COLUBK
+    152  f2a8
+    153  f2a8		       8d 00 00 	      sta	WSYNC
+    154  f2ab
+    155  f2ab
+    156  f2ab
+    145  f2ab					      REPEND
+    146  f2ab
+    147  f2ab
+    148  f2ab
+    149  f2ab		       e8		      inx
+    150  f2ac
+    151  f2ac		       8e 00 00 	      stx	COLUBK
+    152  f2af
+    153  f2af		       8d 00 00 	      sta	WSYNC
+    154  f2b2
+    155  f2b2
+    156  f2b2
+    145  f2b2					      REPEND
+    146  f2b2
+    147  f2b2
+    148  f2b2
+    149  f2b2		       e8		      inx
+    150  f2b3
+    151  f2b3		       8e 00 00 	      stx	COLUBK
+    152  f2b6
+    153  f2b6		       8d 00 00 	      sta	WSYNC
+    154  f2b9
+    155  f2b9
+    156  f2b9
+    145  f2b9					      REPEND
+    146  f2b9
+    147  f2b9
+    148  f2b9
+    149  f2b9		       e8		      inx
+    150  f2ba
+    151  f2ba		       8e 00 00 	      stx	COLUBK
+    152  f2bd
+    153  f2bd		       8d 00 00 	      sta	WSYNC
+    154  f2c0
+    155  f2c0
+    156  f2c0
+    145  f2c0					      REPEND
+    146  f2c0
+    147  f2c0
+    148  f2c0
+    149  f2c0		       e8		      inx
+    150  f2c1
+    151  f2c1		       8e 00 00 	      stx	COLUBK
+    152  f2c4
+    153  f2c4		       8d 00 00 	      sta	WSYNC
+    154  f2c7
+    155  f2c7
+    156  f2c7
+    145  f2c7					      REPEND
+    146  f2c7
+    147  f2c7
+    148  f2c7
+    149  f2c7		       e8		      inx
+    150  f2c8
+    151  f2c8		       8e 00 00 	      stx	COLUBK
+    152  f2cb
+    153  f2cb		       8d 00 00 	      sta	WSYNC
+    154  f2ce
+    155  f2ce
+    156  f2ce
+    145  f2ce					      REPEND
+    146  f2ce
+    147  f2ce
+    148  f2ce
+    149  f2ce		       e8		      inx
+    150  f2cf
+    151  f2cf		       8e 00 00 	      stx	COLUBK
+    152  f2d2
+    153  f2d2		       8d 00 00 	      sta	WSYNC
+    154  f2d5
+    155  f2d5
+    156  f2d5
+    145  f2d5					      REPEND
+    146  f2d5
+    147  f2d5
+    148  f2d5
+    149  f2d5		       e8		      inx
+    150  f2d6
+    151  f2d6		       8e 00 00 	      stx	COLUBK
+    152  f2d9
+    153  f2d9		       8d 00 00 	      sta	WSYNC
+    154  f2dc
+    155  f2dc
+    156  f2dc
+    145  f2dc					      REPEND
+    146  f2dc
+    147  f2dc
+    148  f2dc
+    149  f2dc		       e8		      inx
+    150  f2dd
+    151  f2dd		       8e 00 00 	      stx	COLUBK
+    152  f2e0
+    153  f2e0		       8d 00 00 	      sta	WSYNC
+    154  f2e3
+    155  f2e3
+    156  f2e3
+    145  f2e3					      REPEND
+    146  f2e3
+    147  f2e3
+    148  f2e3
+    149  f2e3		       e8		      inx
+    150  f2e4
+    151  f2e4		       8e 00 00 	      stx	COLUBK
+    152  f2e7
+    153  f2e7		       8d 00 00 	      sta	WSYNC
+    154  f2ea
+    155  f2ea
+    156  f2ea
+    145  f2ea					      REPEND
+    146  f2ea
+    147  f2ea
+    148  f2ea
+    149  f2ea		       e8		      inx
+    150  f2eb
+    151  f2eb		       8e 00 00 	      stx	COLUBK
+    152  f2ee
+    153  f2ee		       8d 00 00 	      sta	WSYNC
+    154  f2f1
+    155  f2f1
+    156  f2f1
+    145  f2f1					      REPEND
+    146  f2f1
+    147  f2f1
+    148  f2f1
+    149  f2f1		       e8		      inx
+    150  f2f2
+    151  f2f2		       8e 00 00 	      stx	COLUBK
+    152  f2f5
+    153  f2f5		       8d 00 00 	      sta	WSYNC
+    154  f2f8
+    155  f2f8
+    156  f2f8
+    145  f2f8					      REPEND
+    146  f2f8
+    147  f2f8
+    148  f2f8
+    149  f2f8		       e8		      inx
+    150  f2f9
+    151  f2f9		       8e 00 00 	      stx	COLUBK
+    152  f2fc
+    153  f2fc		       8d 00 00 	      sta	WSYNC
+    154  f2ff
+    155  f2ff
+    156  f2ff
+    145  f2ff					      REPEND
+    146  f2ff
+    147  f2ff
+    148  f2ff
+    149  f2ff		       e8		      inx
+    150  f300
+    151  f300		       8e 00 00 	      stx	COLUBK
+    152  f303
+    153  f303		       8d 00 00 	      sta	WSYNC
+    154  f306
+    155  f306
+    156  f306
+    145  f306					      REPEND
+    146  f306
+    147  f306
+    148  f306
+    149  f306		       e8		      inx
+    150  f307
+    151  f307		       8e 00 00 	      stx	COLUBK
+    152  f30a
+    153  f30a		       8d 00 00 	      sta	WSYNC
+    154  f30d
+    155  f30d
+    156  f30d
+    145  f30d					      REPEND
+    146  f30d
+    147  f30d
+    148  f30d
+    149  f30d		       e8		      inx
+    150  f30e
+    151  f30e		       8e 00 00 	      stx	COLUBK
+    152  f311
+    153  f311		       8d 00 00 	      sta	WSYNC
+    154  f314
+    155  f314
+    156  f314
+    145  f314					      REPEND
+    146  f314
+    147  f314
+    148  f314
+    149  f314		       e8		      inx
+    150  f315
+    151  f315		       8e 00 00 	      stx	COLUBK
+    152  f318
+    153  f318		       8d 00 00 	      sta	WSYNC
+    154  f31b
+    155  f31b
+    156  f31b
+    145  f31b					      REPEND
+    146  f31b
+    147  f31b
+    148  f31b
+    149  f31b		       e8		      inx
+    150  f31c
+    151  f31c		       8e 00 00 	      stx	COLUBK
+    152  f31f
+    153  f31f		       8d 00 00 	      sta	WSYNC
+    154  f322
+    155  f322
+    156  f322
+    145  f322					      REPEND
+    146  f322
+    147  f322
+    148  f322
+    149  f322		       e8		      inx
+    150  f323
+    151  f323		       8e 00 00 	      stx	COLUBK
+    152  f326
+    153  f326		       8d 00 00 	      sta	WSYNC
+    154  f329
+    155  f329
+    156  f329
+    145  f329					      REPEND
+    146  f329
+    147  f329
+    148  f329
+    149  f329		       e8		      inx
+    150  f32a
+    151  f32a		       8e 00 00 	      stx	COLUBK
+    152  f32d
+    153  f32d		       8d 00 00 	      sta	WSYNC
+    154  f330
+    155  f330
+    156  f330
+    145  f330					      REPEND
+    146  f330
+    147  f330
+    148  f330
+    149  f330		       e8		      inx
+    150  f331
+    151  f331		       8e 00 00 	      stx	COLUBK
+    152  f334
+    153  f334		       8d 00 00 	      sta	WSYNC
+    154  f337
+    155  f337
+    156  f337
+    145  f337					      REPEND
+    146  f337
+    147  f337
+    148  f337
+    149  f337		       e8		      inx
+    150  f338
+    151  f338		       8e 00 00 	      stx	COLUBK
+    152  f33b
+    153  f33b		       8d 00 00 	      sta	WSYNC
+    154  f33e
+    155  f33e
+    156  f33e
+    145  f33e					      REPEND
+    146  f33e
+    147  f33e
+    148  f33e
+    149  f33e		       e8		      inx
+    150  f33f
+    151  f33f		       8e 00 00 	      stx	COLUBK
+    152  f342
+    153  f342		       8d 00 00 	      sta	WSYNC
+    154  f345
+    155  f345
+    156  f345
+    145  f345					      REPEND
+    146  f345
+    147  f345
+    148  f345
+    149  f345		       e8		      inx
+    150  f346
+    151  f346		       8e 00 00 	      stx	COLUBK
+    152  f349
+    153  f349		       8d 00 00 	      sta	WSYNC
+    154  f34c
+    155  f34c
+    156  f34c
+    145  f34c					      REPEND
+    146  f34c
+    147  f34c
+    148  f34c
+    149  f34c		       e8		      inx
+    150  f34d
+    151  f34d		       8e 00 00 	      stx	COLUBK
+    152  f350
+    153  f350		       8d 00 00 	      sta	WSYNC
+    154  f353
+    155  f353
+    156  f353
+    145  f353					      REPEND
+    146  f353
+    147  f353
+    148  f353
+    149  f353		       e8		      inx
+    150  f354
+    151  f354		       8e 00 00 	      stx	COLUBK
+    152  f357
+    153  f357		       8d 00 00 	      sta	WSYNC
+    154  f35a
+    155  f35a
+    156  f35a
+    145  f35a					      REPEND
+    146  f35a
+    147  f35a
+    148  f35a
+    149  f35a		       e8		      inx
+    150  f35b
+    151  f35b		       8e 00 00 	      stx	COLUBK
+    152  f35e
+    153  f35e		       8d 00 00 	      sta	WSYNC
+    154  f361
+    155  f361
+    156  f361
+    145  f361					      REPEND
+    146  f361
+    147  f361
+    148  f361
+    149  f361		       e8		      inx
+    150  f362
+    151  f362		       8e 00 00 	      stx	COLUBK
+    152  f365
+    153  f365		       8d 00 00 	      sta	WSYNC
+    154  f368
+    155  f368
+    156  f368
+    145  f368					      REPEND
+    146  f368
+    147  f368
+    148  f368
+    149  f368		       e8		      inx
+    150  f369
+    151  f369		       8e 00 00 	      stx	COLUBK
+    152  f36c
+    153  f36c		       8d 00 00 	      sta	WSYNC
+    154  f36f
+    155  f36f
+    156  f36f
+    145  f36f					      REPEND
+    146  f36f
+    147  f36f
+    148  f36f
+    149  f36f		       e8		      inx
+    150  f370
+    151  f370		       8e 00 00 	      stx	COLUBK
+    152  f373
+    153  f373		       8d 00 00 	      sta	WSYNC
+    154  f376
+    155  f376
+    156  f376
+    145  f376					      REPEND
+    146  f376
+    147  f376
+    148  f376
+    149  f376		       e8		      inx
+    150  f377
+    151  f377		       8e 00 00 	      stx	COLUBK
+    152  f37a
+    153  f37a		       8d 00 00 	      sta	WSYNC
+    154  f37d
+    155  f37d
+    156  f37d
+    145  f37d					      REPEND
+    146  f37d
+    147  f37d
+    148  f37d
+    149  f37d		       e8		      inx
+    150  f37e
+    151  f37e		       8e 00 00 	      stx	COLUBK
+    152  f381
+    153  f381		       8d 00 00 	      sta	WSYNC
+    154  f384
+    155  f384
+    156  f384
+    145  f384					      REPEND
+    146  f384
+    147  f384
+    148  f384
+    149  f384		       e8		      inx
+    150  f385
+    151  f385		       8e 00 00 	      stx	COLUBK
+    152  f388
+    153  f388		       8d 00 00 	      sta	WSYNC
+    154  f38b
+    155  f38b
+    156  f38b
+    145  f38b					      REPEND
+    146  f38b
+    147  f38b
+    148  f38b
+    149  f38b		       e8		      inx
+    150  f38c
+    151  f38c		       8e 00 00 	      stx	COLUBK
+    152  f38f
+    153  f38f		       8d 00 00 	      sta	WSYNC
+    154  f392
+    155  f392
+    156  f392
+    145  f392					      REPEND
+    146  f392
+    147  f392
+    148  f392
+    149  f392		       e8		      inx
+    150  f393
+    151  f393		       8e 00 00 	      stx	COLUBK
+    152  f396
+    153  f396		       8d 00 00 	      sta	WSYNC
+    154  f399
+    155  f399
+    156  f399
+    145  f399					      REPEND
+    146  f399
+    147  f399
+    148  f399
+    149  f399		       e8		      inx
+    150  f39a
+    151  f39a		       8e 00 00 	      stx	COLUBK
+    152  f39d
+    153  f39d		       8d 00 00 	      sta	WSYNC
+    154  f3a0
+    155  f3a0
+    156  f3a0
+    145  f3a0					      REPEND
+    146  f3a0
+    147  f3a0
+    148  f3a0
+    149  f3a0		       e8		      inx
+    150  f3a1
+    151  f3a1		       8e 00 00 	      stx	COLUBK
+    152  f3a4
+    153  f3a4		       8d 00 00 	      sta	WSYNC
+    154  f3a7
+    155  f3a7
+    156  f3a7
+    145  f3a7					      REPEND
+    146  f3a7
+    147  f3a7
+    148  f3a7
+    149  f3a7		       e8		      inx
+    150  f3a8
+    151  f3a8		       8e 00 00 	      stx	COLUBK
+    152  f3ab
+    153  f3ab		       8d 00 00 	      sta	WSYNC
+    154  f3ae
+    155  f3ae
+    156  f3ae
+    145  f3ae					      REPEND
+    146  f3ae
+    147  f3ae
+    148  f3ae
+    149  f3ae		       e8		      inx
+    150  f3af
+    151  f3af		       8e 00 00 	      stx	COLUBK
+    152  f3b2
+    153  f3b2		       8d 00 00 	      sta	WSYNC
+    154  f3b5
+    155  f3b5
+    156  f3b5
+    145  f3b5					      REPEND
+    146  f3b5
+    147  f3b5
+    148  f3b5
+    149  f3b5		       e8		      inx
+    150  f3b6
+    151  f3b6		       8e 00 00 	      stx	COLUBK
+    152  f3b9
+    153  f3b9		       8d 00 00 	      sta	WSYNC
+    154  f3bc
+    155  f3bc
+    156  f3bc
+    145  f3bc					      REPEND
+    146  f3bc
+    147  f3bc
+    148  f3bc
+    149  f3bc		       e8		      inx
+    150  f3bd
+    151  f3bd		       8e 00 00 	      stx	COLUBK
+    152  f3c0
+    153  f3c0		       8d 00 00 	      sta	WSYNC
+    154  f3c3
+    155  f3c3
+    156  f3c3
+    145  f3c3					      REPEND
+    146  f3c3
+    147  f3c3
+    148  f3c3
+    149  f3c3		       e8		      inx
+    150  f3c4
+    151  f3c4		       8e 00 00 	      stx	COLUBK
+    152  f3c7
+    153  f3c7		       8d 00 00 	      sta	WSYNC
+    154  f3ca
+    155  f3ca
+    156  f3ca
+    145  f3ca					      REPEND
+    146  f3ca
+    147  f3ca
+    148  f3ca
+    149  f3ca		       e8		      inx
+    150  f3cb
+    151  f3cb		       8e 00 00 	      stx	COLUBK
+    152  f3ce
+    153  f3ce		       8d 00 00 	      sta	WSYNC
+    154  f3d1
+    155  f3d1
+    156  f3d1
+    145  f3d1					      REPEND
+    146  f3d1
+    147  f3d1
+    148  f3d1
+    149  f3d1		       e8		      inx
+    150  f3d2
+    151  f3d2		       8e 00 00 	      stx	COLUBK
+    152  f3d5
+    153  f3d5		       8d 00 00 	      sta	WSYNC
+    154  f3d8
+    155  f3d8
+    156  f3d8
+    145  f3d8					      REPEND
+    146  f3d8
+    147  f3d8
+    148  f3d8
+    149  f3d8		       e8		      inx
+    150  f3d9
+    151  f3d9		       8e 00 00 	      stx	COLUBK
+    152  f3dc
+    153  f3dc		       8d 00 00 	      sta	WSYNC
+    154  f3df
+    155  f3df
+    156  f3df
+    145  f3df					      REPEND
+    146  f3df
+    147  f3df
+    148  f3df
+    149  f3df		       e8		      inx
+    150  f3e0
+    151  f3e0		       8e 00 00 	      stx	COLUBK
+    152  f3e3
+    153  f3e3		       8d 00 00 	      sta	WSYNC
+    154  f3e6
+    155  f3e6
+    156  f3e6
+    145  f3e6					      REPEND
+    146  f3e6
+    147  f3e6
+    148  f3e6
+    149  f3e6		       e8		      inx
+    150  f3e7
+    151  f3e7		       8e 00 00 	      stx	COLUBK
+    152  f3ea
+    153  f3ea		       8d 00 00 	      sta	WSYNC
+    154  f3ed
+    155  f3ed
+    156  f3ed
+    145  f3ed					      REPEND
+    146  f3ed
+    147  f3ed
+    148  f3ed
+    149  f3ed		       e8		      inx
+    150  f3ee
+    151  f3ee		       8e 00 00 	      stx	COLUBK
+    152  f3f1
+    153  f3f1		       8d 00 00 	      sta	WSYNC
+    154  f3f4
+    155  f3f4
+    156  f3f4
+    145  f3f4					      REPEND
+    146  f3f4
+    147  f3f4
+    148  f3f4
+    149  f3f4		       e8		      inx
+    150  f3f5
+    151  f3f5		       8e 00 00 	      stx	COLUBK
+    152  f3f8
+    153  f3f8		       8d 00 00 	      sta	WSYNC
+    154  f3fb
+    155  f3fb
+    156  f3fb
+    145  f3fb					      REPEND
+    146  f3fb
+    147  f3fb
+    148  f3fb
+    149  f3fb		       e8		      inx
+    150  f3fc
+    151  f3fc		       8e 00 00 	      stx	COLUBK
+    152  f3ff
+    153  f3ff		       8d 00 00 	      sta	WSYNC
+    154  f402
+    155  f402
+    156  f402
+    145  f402					      REPEND
+    146  f402
+    147  f402
+    148  f402
+    149  f402		       e8		      inx
+    150  f403
+    151  f403		       8e 00 00 	      stx	COLUBK
+    152  f406
+    153  f406		       8d 00 00 	      sta	WSYNC
+    154  f409
+    155  f409
+    156  f409
+    145  f409					      REPEND
+    146  f409
+    147  f409
+    148  f409
+    149  f409		       e8		      inx
+    150  f40a
+    151  f40a		       8e 00 00 	      stx	COLUBK
+    152  f40d
+    153  f40d		       8d 00 00 	      sta	WSYNC
+    154  f410
+    155  f410
+    156  f410
+    145  f410					      REPEND
+    146  f410
+    147  f410
+    148  f410
+    149  f410		       e8		      inx
+    150  f411
+    151  f411		       8e 00 00 	      stx	COLUBK
+    152  f414
+    153  f414		       8d 00 00 	      sta	WSYNC
+    154  f417
+    155  f417
+    156  f417
+    145  f417					      REPEND
+    146  f417
+    147  f417
+    148  f417
+    149  f417		       e8		      inx
+    150  f418
+    151  f418		       8e 00 00 	      stx	COLUBK
+    152  f41b
+    153  f41b		       8d 00 00 	      sta	WSYNC
+    154  f41e
+    155  f41e
+    156  f41e
+    145  f41e					      REPEND
+    146  f41e
+    147  f41e
+    148  f41e
+    149  f41e		       e8		      inx
+    150  f41f
+    151  f41f		       8e 00 00 	      stx	COLUBK
+    152  f422
+    153  f422		       8d 00 00 	      sta	WSYNC
+    154  f425
+    155  f425
+    156  f425
+    145  f425					      REPEND
+    146  f425
+    147  f425
+    148  f425
+    149  f425		       e8		      inx
+    150  f426
+    151  f426		       8e 00 00 	      stx	COLUBK
+    152  f429
+    153  f429		       8d 00 00 	      sta	WSYNC
+    154  f42c
+    155  f42c
+    156  f42c
+    145  f42c					      REPEND
+    146  f42c
+    147  f42c
+    148  f42c
+    149  f42c		       e8		      inx
+    150  f42d
+    151  f42d		       8e 00 00 	      stx	COLUBK
+    152  f430
+    153  f430		       8d 00 00 	      sta	WSYNC
+    154  f433
+    155  f433
+    156  f433
+    145  f433					      REPEND
+    146  f433
+    147  f433
+    148  f433
+    149  f433		       e8		      inx
+    150  f434
+    151  f434		       8e 00 00 	      stx	COLUBK
+    152  f437
+    153  f437		       8d 00 00 	      sta	WSYNC
+    154  f43a
+    155  f43a
+    156  f43a
+    145  f43a					      REPEND
+    146  f43a
+    147  f43a
+    148  f43a
+    149  f43a		       e8		      inx
+    150  f43b
+    151  f43b		       8e 00 00 	      stx	COLUBK
+    152  f43e
+    153  f43e		       8d 00 00 	      sta	WSYNC
+    154  f441
+    155  f441
+    156  f441
+    145  f441					      REPEND
+    146  f441
+    147  f441
+    148  f441
+    149  f441		       e8		      inx
+    150  f442
+    151  f442		       8e 00 00 	      stx	COLUBK
+    152  f445
+    153  f445		       8d 00 00 	      sta	WSYNC
+    154  f448
+    155  f448
+    156  f448
+    145  f448					      REPEND
+    146  f448
+    147  f448
+    148  f448
+    149  f448		       e8		      inx
+    150  f449
+    151  f449		       8e 00 00 	      stx	COLUBK
+    152  f44c
+    153  f44c		       8d 00 00 	      sta	WSYNC
+    154  f44f
+    155  f44f
+    156  f44f
+    145  f44f					      REPEND
+    146  f44f
+    147  f44f
+    148  f44f
+    149  f44f		       e8		      inx
+    150  f450
+    151  f450		       8e 00 00 	      stx	COLUBK
+    152  f453
+    153  f453		       8d 00 00 	      sta	WSYNC
+    154  f456
+    155  f456
+    156  f456
+    145  f456					      REPEND
+    146  f456
+    147  f456
+    148  f456
+    149  f456		       e8		      inx
+    150  f457
+    151  f457		       8e 00 00 	      stx	COLUBK
+    152  f45a
+    153  f45a		       8d 00 00 	      sta	WSYNC
+    154  f45d
+    155  f45d
+    156  f45d
+    145  f45d					      REPEND
+    146  f45d
+    147  f45d
+    148  f45d
+    149  f45d		       e8		      inx
+    150  f45e
+    151  f45e		       8e 00 00 	      stx	COLUBK
+    152  f461
+    153  f461		       8d 00 00 	      sta	WSYNC
+    154  f464
+    155  f464
+    156  f464
+    145  f464					      REPEND
+    146  f464
+    147  f464
+    148  f464
+    149  f464		       e8		      inx
+    150  f465
+    151  f465		       8e 00 00 	      stx	COLUBK
+    152  f468
+    153  f468		       8d 00 00 	      sta	WSYNC
+    154  f46b
+    155  f46b
+    156  f46b
+    145  f46b					      REPEND
+    146  f46b
+    147  f46b
+    148  f46b
+    149  f46b		       e8		      inx
+    150  f46c
+    151  f46c		       8e 00 00 	      stx	COLUBK
+    152  f46f
+    153  f46f		       8d 00 00 	      sta	WSYNC
+    154  f472
+    155  f472
+    156  f472
+    145  f472					      REPEND
+    146  f472
+    147  f472
+    148  f472
+    149  f472		       e8		      inx
+    150  f473
+    151  f473		       8e 00 00 	      stx	COLUBK
+    152  f476
+    153  f476		       8d 00 00 	      sta	WSYNC
+    154  f479
+    155  f479
+    156  f479
+    145  f479					      REPEND
+    146  f479
+    147  f479
+    148  f479
+    149  f479		       e8		      inx
+    150  f47a
+    151  f47a		       8e 00 00 	      stx	COLUBK
+    152  f47d
+    153  f47d		       8d 00 00 	      sta	WSYNC
+    154  f480
+    155  f480
+    156  f480
+    145  f480					      REPEND
+    146  f480
+    147  f480
+    148  f480
+    149  f480		       e8		      inx
+    150  f481
+    151  f481		       8e 00 00 	      stx	COLUBK
+    152  f484
+    153  f484		       8d 00 00 	      sta	WSYNC
+    154  f487
+    155  f487
+    156  f487
+    145  f487					      REPEND
+    146  f487
+    147  f487
+    148  f487
+    149  f487		       e8		      inx
+    150  f488
+    151  f488		       8e 00 00 	      stx	COLUBK
+    152  f48b
+    153  f48b		       8d 00 00 	      sta	WSYNC
+    154  f48e
+    155  f48e
+    156  f48e
+    145  f48e					      REPEND
+    146  f48e
+    147  f48e
+    148  f48e
+    149  f48e		       e8		      inx
+    150  f48f
+    151  f48f		       8e 00 00 	      stx	COLUBK
+    152  f492
+    153  f492		       8d 00 00 	      sta	WSYNC
+    154  f495
+    155  f495
+    156  f495
+    145  f495					      REPEND
+    146  f495
+    147  f495
+    148  f495
+    149  f495		       e8		      inx
+    150  f496
+    151  f496		       8e 00 00 	      stx	COLUBK
+    152  f499
+    153  f499		       8d 00 00 	      sta	WSYNC
+    154  f49c
+    155  f49c
+    156  f49c
+    145  f49c					      REPEND
+    146  f49c
+    147  f49c
+    148  f49c
+    149  f49c		       e8		      inx
+    150  f49d
+    151  f49d		       8e 00 00 	      stx	COLUBK
+    152  f4a0
+    153  f4a0		       8d 00 00 	      sta	WSYNC
+    154  f4a3
+    155  f4a3
+    156  f4a3
+    145  f4a3					      REPEND
+    146  f4a3
+    147  f4a3
+    148  f4a3
+    149  f4a3		       e8		      inx
+    150  f4a4
+    151  f4a4		       8e 00 00 	      stx	COLUBK
+    152  f4a7
+    153  f4a7		       8d 00 00 	      sta	WSYNC
+    154  f4aa
+    155  f4aa
+    156  f4aa
+    145  f4aa					      REPEND
+    146  f4aa
+    147  f4aa
+    148  f4aa
+    149  f4aa		       e8		      inx
+    150  f4ab
+    151  f4ab		       8e 00 00 	      stx	COLUBK
+    152  f4ae
+    153  f4ae		       8d 00 00 	      sta	WSYNC
+    154  f4b1
+    155  f4b1
+    156  f4b1
+    145  f4b1					      REPEND
+    146  f4b1
+    147  f4b1
+    148  f4b1
+    149  f4b1		       e8		      inx
+    150  f4b2
+    151  f4b2		       8e 00 00 	      stx	COLUBK
+    152  f4b5
+    153  f4b5		       8d 00 00 	      sta	WSYNC
+    154  f4b8
+    155  f4b8
+    156  f4b8
+    145  f4b8					      REPEND
+    146  f4b8
+    147  f4b8
+    148  f4b8
+    149  f4b8		       e8		      inx
+    150  f4b9
+    151  f4b9		       8e 00 00 	      stx	COLUBK
+    152  f4bc
+    153  f4bc		       8d 00 00 	      sta	WSYNC
+    154  f4bf
+    155  f4bf
+    156  f4bf
+    145  f4bf					      REPEND
+    146  f4bf
+    147  f4bf
+    148  f4bf
+    149  f4bf		       e8		      inx
+    150  f4c0
+    151  f4c0		       8e 00 00 	      stx	COLUBK
+    152  f4c3
+    153  f4c3		       8d 00 00 	      sta	WSYNC
+    154  f4c6
+    155  f4c6
+    156  f4c6
+    145  f4c6					      REPEND
+    146  f4c6
+    147  f4c6
+    148  f4c6
+    149  f4c6		       e8		      inx
+    150  f4c7
+    151  f4c7		       8e 00 00 	      stx	COLUBK
+    152  f4ca
+    153  f4ca		       8d 00 00 	      sta	WSYNC
+    154  f4cd
+    155  f4cd
+    156  f4cd
+    145  f4cd					      REPEND
+    146  f4cd
+    147  f4cd
+    148  f4cd
+    149  f4cd		       e8		      inx
+    150  f4ce
+    151  f4ce		       8e 00 00 	      stx	COLUBK
+    152  f4d1
+    153  f4d1		       8d 00 00 	      sta	WSYNC
+    154  f4d4
+    155  f4d4
+    156  f4d4
+    145  f4d4					      REPEND
+    146  f4d4
+    147  f4d4
+    148  f4d4
+    149  f4d4		       e8		      inx
+    150  f4d5
+    151  f4d5		       8e 00 00 	      stx	COLUBK
+    152  f4d8
+    153  f4d8		       8d 00 00 	      sta	WSYNC
+    154  f4db
+    155  f4db
+    156  f4db
+    145  f4db					      REPEND
+    146  f4db
+    147  f4db
+    148  f4db
+    149  f4db		       e8		      inx
+    150  f4dc
+    151  f4dc		       8e 00 00 	      stx	COLUBK
+    152  f4df
+    153  f4df		       8d 00 00 	      sta	WSYNC
+    154  f4e2
+    155  f4e2
+    156  f4e2
+    145  f4e2					      REPEND
+    146  f4e2
+    147  f4e2
+    148  f4e2
+    149  f4e2		       e8		      inx
+    150  f4e3
+    151  f4e3		       8e 00 00 	      stx	COLUBK
+    152  f4e6
+    153  f4e6		       8d 00 00 	      sta	WSYNC
+    154  f4e9
+    155  f4e9
+    156  f4e9
+    145  f4e9					      REPEND
+    146  f4e9
+    147  f4e9
+    148  f4e9
+    149  f4e9		       e8		      inx
+    150  f4ea
+    151  f4ea		       8e 00 00 	      stx	COLUBK
+    152  f4ed
+    153  f4ed		       8d 00 00 	      sta	WSYNC
+    154  f4f0
+    155  f4f0
+    156  f4f0
+    145  f4f0					      REPEND
+    146  f4f0
+    147  f4f0
+    148  f4f0
+    149  f4f0		       e8		      inx
+    150  f4f1
+    151  f4f1		       8e 00 00 	      stx	COLUBK
+    152  f4f4
+    153  f4f4		       8d 00 00 	      sta	WSYNC
+    154  f4f7
+    155  f4f7
+    156  f4f7
+    145  f4f7					      REPEND
+    146  f4f7
+    147  f4f7
+    148  f4f7
+    149  f4f7		       e8		      inx
+    150  f4f8
+    151  f4f8		       8e 00 00 	      stx	COLUBK
+    152  f4fb
+    153  f4fb		       8d 00 00 	      sta	WSYNC
+    154  f4fe
+    155  f4fe
+    156  f4fe
+    145  f4fe					      REPEND
+    146  f4fe
+    147  f4fe
+    148  f4fe
+    149  f4fe		       e8		      inx
+    150  f4ff
+    151  f4ff		       8e 00 00 	      stx	COLUBK
+    152  f502
+    153  f502		       8d 00 00 	      sta	WSYNC
+    154  f505
+    155  f505
+    156  f505
+    145  f505					      REPEND
+    146  f505
+    147  f505
+    148  f505
+    149  f505		       e8		      inx
+    150  f506
+    151  f506		       8e 00 00 	      stx	COLUBK
+    152  f509
+    153  f509		       8d 00 00 	      sta	WSYNC
+    154  f50c
+    155  f50c
+    156  f50c
+    145  f50c					      REPEND
+    146  f50c
+    147  f50c
+    148  f50c
+    149  f50c		       e8		      inx
+    150  f50d
+    151  f50d		       8e 00 00 	      stx	COLUBK
+    152  f510
+    153  f510		       8d 00 00 	      sta	WSYNC
+    154  f513
+    155  f513
+    156  f513
+    145  f513					      REPEND
+    146  f513
+    147  f513
+    148  f513
+    149  f513		       e8		      inx
+    150  f514
+    151  f514		       8e 00 00 	      stx	COLUBK
+    152  f517
+    153  f517		       8d 00 00 	      sta	WSYNC
+    154  f51a
+    155  f51a
+    156  f51a
+    145  f51a					      REPEND
+    146  f51a
+    147  f51a
+    148  f51a
+    149  f51a		       e8		      inx
+    150  f51b
+    151  f51b		       8e 00 00 	      stx	COLUBK
+    152  f51e
+    153  f51e		       8d 00 00 	      sta	WSYNC
+    154  f521
+    155  f521
+    156  f521
+    145  f521					      REPEND
+    146  f521
+    147  f521
+    148  f521
+    149  f521		       e8		      inx
+    150  f522
+    151  f522		       8e 00 00 	      stx	COLUBK
+    152  f525
+    153  f525		       8d 00 00 	      sta	WSYNC
+    154  f528
+    155  f528
+    156  f528
+    145  f528					      REPEND
+    146  f528
+    147  f528
+    148  f528
+    149  f528		       e8		      inx
+    150  f529
+    151  f529		       8e 00 00 	      stx	COLUBK
+    152  f52c
+    153  f52c		       8d 00 00 	      sta	WSYNC
+    154  f52f
+    155  f52f
+    156  f52f
+    145  f52f					      REPEND
+    146  f52f
+    147  f52f
+    148  f52f
+    149  f52f		       e8		      inx
+    150  f530
+    151  f530		       8e 00 00 	      stx	COLUBK
+    152  f533
+    153  f533		       8d 00 00 	      sta	WSYNC
+    154  f536
+    155  f536
+    156  f536
+    145  f536					      REPEND
+    146  f536
+    147  f536
+    148  f536
+    149  f536		       e8		      inx
+    150  f537
+    151  f537		       8e 00 00 	      stx	COLUBK
+    152  f53a
+    153  f53a		       8d 00 00 	      sta	WSYNC
+    154  f53d
+    155  f53d
+    156  f53d
+    145  f53d					      REPEND
+    146  f53d
+    147  f53d
+    148  f53d
+    149  f53d		       e8		      inx
+    150  f53e
+    151  f53e		       8e 00 00 	      stx	COLUBK
+    152  f541
+    153  f541		       8d 00 00 	      sta	WSYNC
+    154  f544
+    155  f544
+    156  f544
+    145  f544					      REPEND
+    146  f544
+    147  f544
+    148  f544
+    149  f544		       e8		      inx
+    150  f545
+    151  f545		       8e 00 00 	      stx	COLUBK
+    152  f548
+    153  f548		       8d 00 00 	      sta	WSYNC
+    154  f54b
+    155  f54b
+    156  f54b
+    145  f54b					      REPEND
+    146  f54b
+    147  f54b
+    148  f54b
+    149  f54b		       e8		      inx
+    150  f54c
+    151  f54c		       8e 00 00 	      stx	COLUBK
+    152  f54f
+    153  f54f		       8d 00 00 	      sta	WSYNC
+    154  f552
+    155  f552
+    156  f552
+    145  f552					      REPEND
+    146  f552
+    147  f552
+    148  f552
+    149  f552		       e8		      inx
+    150  f553
+    151  f553		       8e 00 00 	      stx	COLUBK
+    152  f556
+    153  f556		       8d 00 00 	      sta	WSYNC
+    154  f559
+    155  f559
+    156  f559
+    145  f559					      REPEND
+    146  f559
+    147  f559
+    148  f559
+    149  f559		       e8		      inx
+    150  f55a
+    151  f55a		       8e 00 00 	      stx	COLUBK
+    152  f55d
+    153  f55d		       8d 00 00 	      sta	WSYNC
+    154  f560
+    155  f560
+    156  f560
+    145  f560					      REPEND
+    146  f560
+    147  f560
+    148  f560
+    149  f560		       e8		      inx
+    150  f561
+    151  f561		       8e 00 00 	      stx	COLUBK
+    152  f564
+    153  f564		       8d 00 00 	      sta	WSYNC
+    154  f567
+    155  f567
+    156  f567
+    145  f567					      REPEND
+    146  f567
+    147  f567
+    148  f567
+    149  f567		       e8		      inx
+    150  f568
+    151  f568		       8e 00 00 	      stx	COLUBK
+    152  f56b
+    153  f56b		       8d 00 00 	      sta	WSYNC
+    154  f56e
+    155  f56e
+    156  f56e
+    145  f56e					      REPEND
+    146  f56e
+    147  f56e
+    148  f56e
+    149  f56e		       e8		      inx
+    150  f56f
+    151  f56f		       8e 00 00 	      stx	COLUBK
+    152  f572
+    153  f572		       8d 00 00 	      sta	WSYNC
+    154  f575
+    155  f575
+    156  f575
+    145  f575					      REPEND
+    146  f575
+    147  f575
+    148  f575
+    149  f575		       e8		      inx
+    150  f576
+    151  f576		       8e 00 00 	      stx	COLUBK
+    152  f579
+    153  f579		       8d 00 00 	      sta	WSYNC
+    154  f57c
+    155  f57c
+    156  f57c
+    145  f57c					      REPEND
+    146  f57c
+    147  f57c
+    148  f57c
+    149  f57c		       e8		      inx
+    150  f57d
+    151  f57d		       8e 00 00 	      stx	COLUBK
+    152  f580
+    153  f580		       8d 00 00 	      sta	WSYNC
+    154  f583
+    155  f583
+    156  f583
+    145  f583					      REPEND
+    146  f583
+    147  f583
+    148  f583
+    149  f583		       e8		      inx
+    150  f584
+    151  f584		       8e 00 00 	      stx	COLUBK
+    152  f587
+    153  f587		       8d 00 00 	      sta	WSYNC
+    154  f58a
+    155  f58a
+    156  f58a
+    145  f58a					      REPEND
+    146  f58a
+    147  f58a
+    148  f58a
+    149  f58a		       e8		      inx
+    150  f58b
+    151  f58b		       8e 00 00 	      stx	COLUBK
+    152  f58e
+    153  f58e		       8d 00 00 	      sta	WSYNC
+    154  f591
+    155  f591
+    156  f591
+    145  f591					      REPEND
+    146  f591
+    147  f591
+    148  f591
+    149  f591		       e8		      inx
+    150  f592
+    151  f592		       8e 00 00 	      stx	COLUBK
+    152  f595
+    153  f595		       8d 00 00 	      sta	WSYNC
+    154  f598
+    155  f598
+    156  f598
+    145  f598					      REPEND
+    146  f598
+    147  f598
+    148  f598
+    149  f598		       e8		      inx
+    150  f599
+    151  f599		       8e 00 00 	      stx	COLUBK
+    152  f59c
+    153  f59c		       8d 00 00 	      sta	WSYNC
+    154  f59f
+    155  f59f
+    156  f59f
+    145  f59f					      REPEND
+    146  f59f
+    147  f59f
+    148  f59f
+    149  f59f		       e8		      inx
+    150  f5a0
+    151  f5a0		       8e 00 00 	      stx	COLUBK
+    152  f5a3
+    153  f5a3		       8d 00 00 	      sta	WSYNC
+    154  f5a6
+    155  f5a6
+    156  f5a6
+    145  f5a6					      REPEND
+    146  f5a6
+    147  f5a6
+    148  f5a6
+    149  f5a6		       e8		      inx
+    150  f5a7
+    151  f5a7		       8e 00 00 	      stx	COLUBK
+    152  f5aa
+    153  f5aa		       8d 00 00 	      sta	WSYNC
+    154  f5ad
+    155  f5ad
+    156  f5ad
+    145  f5ad					      REPEND
+    146  f5ad
+    147  f5ad
+    148  f5ad
+    149  f5ad		       e8		      inx
+    150  f5ae
+    151  f5ae		       8e 00 00 	      stx	COLUBK
+    152  f5b1
+    153  f5b1		       8d 00 00 	      sta	WSYNC
+    154  f5b4
+    155  f5b4
+    156  f5b4
+    145  f5b4					      REPEND
+    146  f5b4
+    147  f5b4
+    148  f5b4
+    149  f5b4		       e8		      inx
+    150  f5b5
+    151  f5b5		       8e 00 00 	      stx	COLUBK
+    152  f5b8
+    153  f5b8		       8d 00 00 	      sta	WSYNC
+    154  f5bb
+    155  f5bb
+    156  f5bb
+    145  f5bb					      REPEND
+    146  f5bb
+    147  f5bb
+    148  f5bb
+    149  f5bb		       e8		      inx
+    150  f5bc
+    151  f5bc		       8e 00 00 	      stx	COLUBK
+    152  f5bf
+    153  f5bf		       8d 00 00 	      sta	WSYNC
+    154  f5c2
+    155  f5c2
+    156  f5c2
+    145  f5c2					      REPEND
+    146  f5c2
+    147  f5c2
+    148  f5c2
+    149  f5c2		       e8		      inx
+    150  f5c3
+    151  f5c3		       8e 00 00 	      stx	COLUBK
+    152  f5c6
+    153  f5c6		       8d 00 00 	      sta	WSYNC
+    154  f5c9
+    155  f5c9
+    156  f5c9
+    157  f5c9					      REPEND
+    158  f5c9
+    159  f5c9
+    160  f5c9
+    161  f5c9
+    162  f5c9
+    163  f5c9		       a9 42		      lda	#%01000010
+    164  f5cb
+    165  f5cb		       8d 00 00 	      sta	VBLANK	; end of screen - enter blanking
+    166  f5ce
+    167  f5ce
+    168  f5ce
+    169  f5ce							; 30 scanlines of overscan...
+    170  f5ce
+    171  f5ce
+    172  f5ce
+    173  f5ce		       8d 00 00 	      sta	WSYNC
+    174  f5d1
+    175  f5d1		       8d 00 00 	      sta	WSYNC
+    176  f5d4
+    177  f5d4		       8d 00 00 	      sta	WSYNC
+    178  f5d7
+    179  f5d7		       8d 00 00 	      sta	WSYNC
+    180  f5da
+    181  f5da		       8d 00 00 	      sta	WSYNC
+    182  f5dd
+    183  f5dd		       8d 00 00 	      sta	WSYNC
+    184  f5e0
+    185  f5e0		       8d 00 00 	      sta	WSYNC
+    186  f5e3
+    187  f5e3		       8d 00 00 	      sta	WSYNC
+    188  f5e6
+    189  f5e6		       8d 00 00 	      sta	WSYNC
+    190  f5e9
+    191  f5e9		       8d 00 00 	      sta	WSYNC
+    192  f5ec
+    193  f5ec		       8d 00 00 	      sta	WSYNC
+    194  f5ef
+    195  f5ef		       8d 00 00 	      sta	WSYNC
+    196  f5f2
+    197  f5f2		       8d 00 00 	      sta	WSYNC
+    198  f5f5
+    199  f5f5		       8d 00 00 	      sta	WSYNC
+    200  f5f8
+    201  f5f8		       8d 00 00 	      sta	WSYNC
+    202  f5fb
+    203  f5fb		       8d 00 00 	      sta	WSYNC
+    204  f5fe
+    205  f5fe		       8d 00 00 	      sta	WSYNC
+    206  f601
+    207  f601		       8d 00 00 	      sta	WSYNC
+    208  f604
+    209  f604		       8d 00 00 	      sta	WSYNC
+    210  f607
+    211  f607		       8d 00 00 	      sta	WSYNC
+    212  f60a
+    213  f60a		       8d 00 00 	      sta	WSYNC
+    214  f60d
+    215  f60d		       8d 00 00 	      sta	WSYNC
+    216  f610
+    217  f610		       8d 00 00 	      sta	WSYNC
+    218  f613
+    219  f613		       8d 00 00 	      sta	WSYNC
+    220  f616
+    221  f616		       8d 00 00 	      sta	WSYNC
+    222  f619
+    223  f619		       8d 00 00 	      sta	WSYNC
+    224  f61c
+    225  f61c		       8d 00 00 	      sta	WSYNC
+    226  f61f
+    227  f61f		       8d 00 00 	      sta	WSYNC
+    228  f622
+    229  f622		       8d 00 00 	      sta	WSYNC
+    230  f625
+    231  f625		       8d 00 00 	      sta	WSYNC
+    232  f628
+    233  f628
+    234  f628
+    235  f628		       4c 00 f0 	      jmp	StartOfFrame
+    236  f62b
+    237  f62b
+    238  f62b
+    239  f62b
+    240  f62b
+    241  fffa					      ORG	$FFFA
+    242  fffa
+    243  fffa
+    244  fffa
+    245  fffa		       00 f0		      .word.w	Reset	; NMI
+    246  fffc
+    247  fffc		       00 f0		      .word.w	Reset	; RESET
+    248  fffe
+    249  fffe		       00 f0		      .word.w	Reset	; IRQ
+    250  10000
+    251  10000
+    252  10000
+    253  10000					       END
