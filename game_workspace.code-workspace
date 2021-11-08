@@ -4,5 +4,11 @@
 			"name": "GameStuff",
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"python.pythonPath": "C:\\Python39\\python.exe",
+		"java.project.sourcePaths": [
+			"."
+		]
+	}
 }
