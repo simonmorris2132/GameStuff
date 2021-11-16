@@ -1,10 +1,34 @@
 package Test;
 
+import java.awt.Color;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
 @SuppressWarnings("ALL")
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        
+
+        JFrame f = new JFrame("Panel Example");
+        JPanel panel = new JPanel();
+        panel.setBounds(40,80, 200, 200);
+        panel.setBackground(Color.GRAY);
+        JButton jButton1 = new JButton("Button 1");
+        jButton1.setBounds(50, 100, 80, 30);
+        jButton1.setBackground(Color.YELLOW);
+        JButton jButton2 = new JButton("Button 2");
+        jButton2.setBounds(100, 100, 80, 30);
+        jButton2.setBackground(Color.GREEN);
+        panel.add(jButton1);
+        panel.add(jButton2);
+        f.add(panel);
+        f.setSize(500, 500);
+        f.setLayout(null);
+        f.setVisible(true);
+
         // String carDirection = "Up";
 
         /* if (carDirection.equals("Left")) {
