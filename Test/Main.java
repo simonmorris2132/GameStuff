@@ -1,7 +1,6 @@
 package Test;
 
 import java.awt.Color;
-
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -12,7 +11,10 @@ import javax.swing.JPanel;
 public class Main {
     public static void main(String[] args) throws InterruptedException {
 
-        JFrame f = new JFrame("Panel Example");
+        
+
+
+/*         JFrame f = new JFrame("Panel Example");
         JPanel panel = new JPanel();
         panel.setBounds(40,80, 200, 200);
         panel.setBackground(Color.GRAY);
@@ -27,7 +29,7 @@ public class Main {
         f.add(panel);
         f.setSize(500, 500);
         f.setLayout(null);
-        f.setVisible(true);
+        f.setVisible(true); */
 
         // String carDirection = "Up";
 
