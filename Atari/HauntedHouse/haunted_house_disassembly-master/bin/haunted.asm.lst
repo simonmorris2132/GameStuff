@@ -1,0 +1,2805 @@
+------- FILE haunted.asm LEVEL 1 PASS 2
+      1  fff4					      PROCESSOR	6502
+      2  f000					      ORG	$F000
+      3  f000
+      4  f000							;; Disassembly of Haunted House
+      5  f000							; Game developed by James Andreasen at Atari
+      6  f000							; Disassembly & documentation by Brandon Roberts
+      7  f000
+      8  f000							; The player, represented by a pair of eyes, must navigate the haunted
+      9  f000							; mansion of the late Zachary Graves to recover the three pieces of an
+     10  f000							; urn. The game has been identified as one of the earliest examples of the
+     11  f000							; survival horror genre.
+     12  f000							;     -- Description of the game from Wikipedia
+     13  f000
+     14  f000							;  The [Atari] 2600 was a real mess.  It's a good thing that we don't try to
+     15  f000							;  program machines like that anymore because it was just absurd. But it was
+     16  f000							;  kind of fun in a sick way if you like that kind of challenge.
+     17  f000							;     -- Howard Scott Warshaw, Atari 2600 game developer
+     18  f000							;	  Creator of Yar's Revenge and E.T. the Extra-Terrestrial
+     19  f000
+     20  f000							;; Notes about the 6502 CPU
+     21  f000							;; Registers:
+     22  f000							;   A: accumulator (8-bit)
+     23  f000							;   X, Y: index registers
+     24  f000							;   P: processor status flags (8-bits NV-BDIZC)
+     25  f000							;   S: stack pointer
+     26  f000							;   PC: program counter (16-bit)
+     27  f000
+     28  f000							;; Addressing modes:
+     29  f000							;    Immediate 	 LDA #$EA	 A <- $EA
+     30  f000							;    Absolute,X	 LDA $0314,X	 A <- mem($0314+X)
+     31  f000							;    Absolute,Y	 LDA $0314,X	 A <- mem($0314+Y)
+     32  f000							;    Zero page 	 LDA $02	 A <- mem($02)
+     33  f000							;    Zero page,X	 LDA $02,X	 A <- mem($02+X)
+     34  f000							;    Zero page,Y	 LDA $02,Y	 A <- mem($02+Y)
+     35  f000							;    (Zero page,X)	 LDA ($02,X)	 A <- mem(PTR($02+X))
+     36  f000							;    (Zero page),Y	 LDA ($02),Y	 A <- mem(PTR($02)+Y)
+     37  f000
+     38  f000							;; 6502 ASM Syntax Notes
+     39  f000							; $ means the following is hex formatted
+     40  f000							; # means the following is a literal number value
+     41  f000							; #$FF means hex value FF, typically used like:
+     42  f000							;    LDA #$FF ;  store hex FF to accumulator
+     43  f000
+     44  f000							;; Routines Known to Exist (but not yet found)
+     45  f000							; - Polynomial Counter for scattering urn objects
+     46  f000							; - Sound subroutines for walking and thunder
+     47  f000							; - Difficulty modes: locked doors + keys, ghost
+     48  f000							;   restrictions, hiding playfield, etc
+     49  f000
+     50  f000		       00 00	   VSYNC      =	$00	; Relevant bits:  ......1. vertical sync set-clear
+     51  f000		       00 01	   VBLANK     =	$01	; Vertical Blank -- between screen draws
+     52  f000							; Relevant bits: 11....1. vertical blank set-clear
+     53  f000		       00 02	   WSYNC      =	$02	; When this is written to, the processor will wait for
+     54  f000							; horizontal sync (beam to hit left edge of screen)
+     55  f000							; You typically see this at STA WSYNC
+     56  f000
+     57  f000		       00 04	   NUSIZ0     =	$04	; number & size of player 0/missile 0 sprites
+     58  f000		       00 05	   NUSIZ1     =	$05	; .. player 1/missile 1
+     59  f000
+     60  f000							;; Color control registers
+     61  f000							; 06-09, color/luminosity registers
+     62  f000		       00 06	   COLUP0     =	$06	; color
+     63  f000		       00 07	   COLUP1     =	$07	; color
+     64  f000		       00 08	   COLUPF     =	$08	; color-luminosity playfield
+     65  f000		       00 09	   COLUBK     =	$09	; color-luminosity background
+     66  f000
+     67  f000		       00 0a	   CTRLPF     =	$0A	; playfield controls
+     68  f000		       00 0d	   PF0	      =	$0D	; playfield graphics
+     69  f000		       00 0e	   PF1	      =	$0E
+     70  f000		       00 0f	   PF2	      =	$0F
+     71  f000
+     72  f000		       00 10	   RESP0      =	$10	; horiz reset (all objects)
+     73  f000		       00 11	   RESP1      =	$11
+     74  f000
+     75  f000		       00 15	   AUDC0      =	$15	; audio control
+     76  f000		       00 16	   AUDC1      =	$16
+     77  f000		       00 17	   AUDF0      =	$17	; audio frequency
+     78  f000		       00 18	   AUDF1      =	$18
+     79  f000		       00 19	   AUDV0      =	$19	; audio volume
+     80  f000		       00 1a	   AUDV1      =	$1A
+     81  f000
+     82  f000		       00 1b	   GRP0       =	$1B	; player graphic 0 (8-bits each)
+     83  f000		       00 1c	   GRP1       =	$1C	; player graphic 1
+     84  f000		       00 1d	   ENAM0      =	$1D	; missile one sprite (1-bit)
+     85  f000		       00 1f	   ENABL      =	$1F	; ball sprite (1-bit)
+     86  f000
+     87  f000		       00 20	   HMP0       =	$20	; horizontal motion register (player 0)
+     88  f000
+     89  f000		       00 2a	   HMOVE      =	$2A	; horizonal sprite positioning (strobe)
+     90  f000							; writing to here, relatively, moves a sprite
+     91  f000							; to a new location based on its last (+8, -7)
+     92  f000
+     93  f000		       00 2c	   CXCLR      =	$2C	; clear collision latches
+     94  f000		       00 32	   CXP0FB     =	$32	; collision detect latch (player 0)
+     95  f000		       00 37	   CXPPMM     =	$37	; collision detect (missile)
+     96  f000
+     97  f000							;; INPT4: input register for the joystick button (1-bit)
+     98  f000							; Pin	PlayerP0  PlayerP1  Expl.
+     99  f000							; 6	INPT4.7   INPT5.7   Button (0=Pressed, 1=Not pressed)
+    100  f000		       00 3c	   INPT4      =	$3C
+    101  f000
+    102  f000							;; SWCHA: joystick motion register (8-bit)
+    103  f000							; Pin	PlayerP0  PlayerP1  Expl.
+    104  f000							; 1	SWCHA.4   SWCHA.0   Up	   (0=Moved, 1=Not moved)
+    105  f000							; 2	SWCHA.5   SWCHA.1   Down   ("")
+    106  f000							; 3	SWCHA.6   SWCHA.2   Left   ("")
+    107  f000							; 4	SWCHA.7   SWCHA.3   Right  ("")
+    108  f000		       02 80	   SWCHA      =	$0280
+    109  f000
+    110  f000							;; SWCHB: switch register on the atai itself (difficulty, etc)
+    111  f000							; Bit	      Expl.
+    112  f000							; SWCHB.0    Reset Button	    (0=Pressed)
+    113  f000							; SWCHB.1    Select Button	    (0=Pressed)
+    114  f000							; SWCHB.2    Not used
+    115  f000							; SWCHB.3    Color Switch	    (0=B/W, 1=Color) (Always 0 for SECAM)
+    116  f000							; SWCHB.4-5  Not used
+    117  f000							; SWCHB.6    P0 Difficulty Switch  (0=Beginner (B), 1=Advanced (A))
+    118  f000							; SWCHB.7    P1 Difficulty Switch  (0=Beginner (B), 1=Advanced (A))
+    119  f000		       02 82	   SWCHB      =	$0282
+    120  f000
+    121  f000		       02 84	   INTIM      =	$0284	; read-only timer (8-bit)
+    122  f000		       02 96	   TIM64T     =	$0296	; set 64-cycle clock interval (53.6 usec/interval)
+    123  f000
+    124  f000							; RAM pointers
+    125  f000							; top of the stack
+    126  f000		       00 ff	   STKTOP     =	$FF
+    127  f000		       00 8e	   MVMT       =	$8E	; last 4 bits store up, down, left, right joystick bits
+    128  f000							; bit format, 1=pressed: RLDU (player 1) ---- (player 2)
+    129  f000		       00 89	   CLOCK      =	$89	; master frame count timer
+    130  f000		       00 f5	   PFCOLOR    =	$F5	; wall color
+    131  f000							; 82h = dark blue (default, diff mode 1)
+    132  f000
+    133  f000		       00 aa	   POS_X      =	$AA	; player X position (horizontal)
+    134  f000		       00 b5	   POS_Y      =	$B5	; player Y position (vertical)
+    135  f000
+    136  f000		       00 8d	   FLOORNO    =	$8D	; Which floor we're on 00-04
+    137  f000		       00 cc	   GAMEMODE   =	$CC	; Game level 1-9
+    138  f000		       00 cd	   LINENO     =	$CD	; Counts the main game screen scan line (79 toal)
+    139  f000		       00 e3	   EYE_PTR    =	$E3
+    140  f000		       00 dd	   UNKNOWN1   =	$DD
+    141  f000		       00 ee	   UNKNOWN2   =	$EE	; 1c on torch, 03 on eyes
+    142  f000		       00 83	   UNKNOWN3   =	$83	; This has something to do with enemies
+    143  f000							; distance to the player and ability to use
+    144  f000							; a torch
+    145  f000		       00 96	   LIVES      =	$96	; holds number of lives
+    146  f000
+    147  f000							; Entry point (START)
+    148  f000							;LF000
+    149  f000				   START
+    150  f000		       78		      SEI		;2 disable interrupts (6507 has no support)
+    151  f001		       d8		      CLD		;2 disable decimal mode
+    152  f002		       a2 ff		      LDX	#STKTOP	;2 X register = stack address
+    153  f004		       9a		      TXS		;2 Init stack (stack register = X = FFh)
+    154  f005		       86 eb		      STX	$EB	;3 stores X to $EB
+    155  f007							;2 $EB could be a scan line counter?
+    156  f007		       e8		      INX		;2 X++
+    157  f008		       86 cc		      STX	GAMEMODE	;3 Start at game mode 1 (0h)
+    158  f00a		       8a		      TXA		;2 sets A to what was at GAMEMODE
+    159  f00b
+    160  f00b							; This is kind of a initial sync loop.
+    161  f00b		       95 00	   LF00B      STA	VSYNC,X	;4
+    162  f00d		       e8		      INX		;2
+    163  f00e		       10 fb		      BPL	LF00B	;2 loop while X is positive (until X overflows)
+    164  f010							; initialization routines...
+    165  f010		       20 82 f0 	      JSR	LF082	;6
+    166  f013		       20 41 f1 	      JSR	LF141	;6
+    167  f016
+    168  f016							; This is the beginning of the main game loop
+    169  f016							;LF016
+    170  f016		       a9 82	   MAIN       LDA	#$82	;2 Get some bits to write ...
+    171  f018		       85 02		      STA	WSYNC	;3 ... to WSYNC. This kicks off new frame draw.
+    172  f01a							; NOTE: writing to WSYNC will halt execution
+    173  f01a							; until the beam is at the left edge of screen.
+    174  f01a							; Produce the three lines of vertical sync
+    175  f01a		       85 01		      STA	VBLANK	;3
+    176  f01c		       85 00		      STA	VSYNC	;3
+    177  f01e		       85 02		      STA	WSYNC	;3
+    178  f020		       85 02		      STA	WSYNC	;3
+    179  f022		       a9 00		      LDA	#0	;2 A=0, do this here to save us cycles later?
+    180  f024		       85 02		      STA	WSYNC	;3 Wait for new line.
+    181  f026							; This begins the 37 lines of vertical blank
+    182  f026		       85 00		      STA	VSYNC	;3 L=2 End of vertical sync pulse
+    183  f028							; We're in vblank now ...
+    184  f028		       e6 89		      INC	CLOCK	;5 increment frame count timer (only done here)
+    185  f02a		       a9 2d		      LDA	#45	;2 45 (2Dh) intervals of 64-cycles = 2880 cycles total
+    186  f02c		       8d 96 02 	      STA	TIM64T	;4 init the timer for VBLANK time
+    187  f02f		       20 79 f0 	      JSR	LF079	;6 This goes into some kind of state mgmt loop
+    188  f032		       a5 99		      LDA	$99	;3
+    189  f034		       29 43		      AND	#$43	;2
+    190  f036		       d0 06		      BNE	LF03E	;2
+    191  f038		       20 a5 f1 	      JSR	LF1A5	;6
+    192  f03b		       20 55 f1 	      JSR	LF155	;6
+    193  f03e		       20 b7 f2    LF03E      JSR	LF2B7	;6
+    194  f041		       ad 84 02    LF041      LDA	INTIM	;  Waits for vertical blanking to complete ...
+    195  f044		       d0 fb		      BNE	LF041
+    196  f046		       85 01		      STA	VBLANK	;  Begin screen draw
+    197  f048		       a9 e4		      LDA	#228	;2 E4h originally
+    198  f04a		       8d 96 02 	      STA	TIM64T	;4 Initialize the timer for screen draw
+    199  f04d		       20 2c f6 	      JSR	STARTPF	;6
+    200  f050
+    201  f050							; Wait for timer to hit zero. This routine gets
+    202  f050							; ran at the bottom of the screen while drawing
+    203  f050							; blank space beneath the floor and game number
+    204  f050							; display.
+    205  f050		       ad 84 02    LF050      LDA	INTIM	;4
+    206  f053		       d0 fb		      BNE	LF050	;2
+    207  f055		       85 02		      STA	WSYNC	;3
+    208  f057		       a9 82		      LDA	#$82	;2
+    209  f059		       85 01		      STA	VBLANK	;3
+    210  f05b		       a9 24		      LDA	#$24	;2
+    211  f05d		       8d 96 02 	      STA	TIM64T	;4
+    212  f060		       24 99		      BIT	$99	;3
+    213  f062		       70 0c		      BVS	LF070	;2
+    214  f064		       20 ac f8 	      JSR	LF8AC	;6
+    215  f067		       20 68 fb 	      JSR	LFB68	;6 an input processing subroutine
+    216  f06a		       20 90 fa 	      JSR	COLLIDE0	;6 collision detection subroutine
+    217  f06d		       20 3c fc 	      JSR	LFC3C	;6 a subroutine for drawing the bottom screen
+    218  f070		       ad 84 02    LF070      LDA	INTIM	;4 reads the timer to A
+    219  f073		       d0 fb		      BNE	LF070	;2 loops until the timer runs to zero (completes)
+    220  f075		       85 01		      STA	VBLANK	;3 sets VBLANK with A
+    221  f077		       f0 9d		      BEQ	MAIN	;2
+    222  f079		       ad 82 02    LF079      LDA	SWCHB	;4 loads the atari switch states to A
+    223  f07c		       6a		      ROR		;2 rotate bit right, accumulator
+    224  f07d		       90 03		      BCC	LF082	;2 branch if the difficulty atari switch is set
+    225  f07f		       4c 25 f1 	      JMP	LF125	;3
+    226  f082
+    227  f082							; This swaps the memory locations of $EB and $EC
+    228  f082							; The following initializes for a loop in LF08E, which runs
+    229  f082							; from 0x80 to 0x96 (22 loops)
+    230  f082		       a6 eb	   LF082      LDX	$EB	;3
+    231  f084		       a5 ec		      LDA	$EC	;3
+    232  f086		       85 eb		      STA	$EB	;3
+    233  f088		       86 ec		      STX	$EC	;3
+    234  f08a		       a2 80		      LDX	#128	;2 80h, o.g.
+    235  f08c		       a9 00		      LDA	#0	;2
+    236  f08e
+    237  f08e		       95 00	   LF08E      STA	VSYNC,X	;4
+    238  f090		       e8		      INX		;2
+    239  f091		       e0 96		      CPX	#$96	;2 Checks to see if X == $96 ...
+    240  f093		       d0 f9		      BNE	LF08E	;2 ... loops if not true. Runs 22 times.
+    241  f095		       a2 09		      LDX	#$09	;2 Initializes so A will get last item in DATA2
+    242  f097							;LF097: Copies 10-byte array from DATA2 to $96
+    243  f097		       bd f6 fd    COPY0      LDA	DATA2,X	;4
+    244  f09a		       95 96		      STA	LIVES,X	;4 Then stores item from DATA2 in $96 + X offset
+    245  f09c		       ca		      DEX		;2
+    246  f09d		       10 f8		      BPL	COPY0	;2
+    247  f09f		       20 e7 f0 	      JSR	LF0E7	;6
+    248  f0a2		       a2 03		      LDX	#$03	;2
+    249  f0a4		       86 a5		      STX	$A5	;3
+    250  f0a6		       e8		      INX		;2
+    251  f0a7		       b5 a5	   LF0A7      LDA	$A5,X	;4
+    252  f0a9		       95 a0		      STA	$A0,X	;4
+    253  f0ab		       b5 b0		      LDA	$B0,X	;4
+    254  f0ad		       95 ab		      STA	$AB,X	;4
+    255  f0af		       b5 bb		      LDA	$BB,X	;4
+    256  f0b1		       95 b6		      STA	$B6,X	;4
+    257  f0b3		       ca		      DEX		;2
+    258  f0b4		       10 f1		      BPL	LF0A7	;2
+    259  f0b6		       a4 cc		      LDY	GAMEMODE	;3
+    260  f0b8		       c0 02		      CPY	#$02	;2
+    261  f0ba		       d0 0b		      BNE	LF0C7	;2
+    262  f0bc		       e8		      INX		;2
+    263  f0bd		       86 a0		      STX	$A0	;3
+    264  f0bf		       a2 74		      LDX	#$74	;2
+    265  f0c1		       86 ab		      STX	$AB	;3
+    266  f0c3		       a2 84		      LDX	#132	;2 84h hex (original)
+    267  f0c5		       86 b6		      STX	$B6	;3
+    268  f0c7		       a9 35	   LF0C7      LDA	#$35	;2
+    269  f0c9		       85 0a		      STA	CTRLPF	;3
+    270  f0cb		       20 0a fd 	      JSR	LFD0A	;6
+    271  f0ce		       a2 04		      LDX	#$04	;2
+    272  f0d0		       a5 cc		      LDA	GAMEMODE	;3
+    273  f0d2		       c9 04		      CMP	#$04	;2
+    274  f0d4		       b0 02		      BCS	LF0D8	;2
+    275  f0d6		       a2 02		      LDX	#$02	;2
+    276  f0d8		       86 ea	   LF0D8      STX	$EA	;3
+    277  f0da		       a9 80		      LDA	#$80	;2
+    278  f0dc		       85 aa		      STA	POS_X	;3
+    279  f0de		       a9 86		      LDA	#$86	;2
+    280  f0e0		       85 b5		      STA	POS_Y	;3
+    281  f0e2		       a9 26		      LDA	#$26	;2
+    282  f0e4		       85 cb		      STA	$CB	;3
+    283  f0e6		       60		      RTS		;6
+    284  f0e7
+    285  f0e7							; This subroutine randomizes some data in RAM based on bit
+    286  f0e7							; shifts and rolls between RAM $EC and $EB. It does this based
+    287  f0e7							; on an input value (A) and also on arrays in memory RAM $A5
+    288  f0e7		       20 c9 f4    LF0E7      JSR	LF4C9	;6 Performs some kind of bit mixing with $EC & EB ...
+    289  f0ea		       29 07		      AND	#$07	;2 ... then checks the result of above ...
+    290  f0ec		       c9 06		      CMP	#$06	;2 ... to see if it's result is >= $06.
+    291  f0ee							;  (CMP sets carry bit if A >= M)
+    292  f0ee		       b0 f7		      BCS	LF0E7	;2 Loop if not.
+    293  f0f0		       85 d0		      STA	$D0	;3 The result of the above, once it's greater than
+    294  f0f2							;  6 is set to RAM: $D0.
+    295  f0f2		       a2 04		      LDX	#$04	;2
+    296  f0f4		       20 c9 f4    LF0F4      JSR	LF4C9	;6 Then we do it again.
+    297  f0f7		       29 03		      AND	#$03	;2
+    298  f0f9		       95 a5		      STA	$A5,X	;4 Stores result as RAM $A5[X]
+    299  f0fb		       a8		      TAY		;2 Y = A
+    300  f0fc		       8a		      TXA		;2 A = X
+    301  f0fd		       18	   LF0FD      CLC		;2
+    302  f0fe		       65 d0		      ADC	$D0	;3
+    303  f100		       c9 06		      CMP	#$06	;2
+    304  f102		       90 02		      BCC	LF106	;2
+    305  f104		       e9 06		      SBC	#$06	;2
+    306  f106		       c5 9c	   LF106      CMP	$9C	;3
+    307  f108		       d0 08		      BNE	LF112	;2
+    308  f10a		       c4 8d		      CPY	FLOORNO	;3
+    309  f10c		       d0 04		      BNE	LF112	;2
+    310  f10e		       a9 05		      LDA	#$05	;2
+    311  f110		       d0 eb		      BNE	LF0FD	;2
+    312  f112		       95 c5	   LF112      STA	$C5,X	;4
+    313  f114		       95 c0		      STA	$C0,X	;4
+    314  f116		       a8		      TAY		;2
+    315  f117		       b9 aa ff 	      LDA	LFFAA,Y	;4
+    316  f11a		       95 b0		      STA	$B0,X	;4
+    317  f11c		       b9 bd ff 	      LDA	LFFBD,Y	;4
+    318  f11f		       95 bb		      STA	$BB,X	;4
+    319  f121		       ca		      DEX		;2
+    320  f122		       10 d0		      BPL	LF0F4	;2
+    321  f124		       60		      RTS		;6
+    322  f125
+    323  f125		       6a	   LF125      ROR		;2
+    324  f126		       90 05		      BCC	LF12D	;2
+    325  f128		       a2 01		      LDX	#$01	;2
+    326  f12a		       86 e5		      STX	$E5	;3
+    327  f12c		       60	   LF12C      RTS		;6
+    328  f12d
+    329  f12d		       c6 e5	   LF12D      DEC	$E5	;5
+    330  f12f		       d0 fb		      BNE	LF12C	;2
+    331  f131		       a9 2d		      LDA	#$2D	;2
+    332  f133		       85 e5		      STA	$E5	;3
+    333  f135		       e6 cc		      INC	GAMEMODE	;5
+    334  f137		       a5 cc		      LDA	GAMEMODE	;3
+    335  f139		       c9 09		      CMP	#$09	;2
+    336  f13b		       d0 02		      BNE	LF13F	;2
+    337  f13d		       a9 00		      LDA	#0	;2
+    338  f13f		       85 cc	   LF13F      STA	GAMEMODE	;3
+    339  f141
+    340  f141							; Initializes some game state variables
+    341  f141		       20 94 f1    LF141      JSR	LF194	;6
+    342  f144		       a9 40		      LDA	#64	;2 40h originally
+    343  f146		       85 99		      STA	$99	;3
+    344  f148		       a9 10		      LDA	#16	;2 10h, initializes mem 84h
+    345  f14a		       85 84		      STA	$84	;3
+    346  f14c		       a9 00		      LDA	#0	;2
+    347  f14e		       85 85		      STA	$85	;3
+    348  f150		       85 80		      STA	$80	;3
+    349  f152		       85 83		      STA	UNKNOWN3	;3
+    350  f154		       60		      RTS		;6
+    351  f155
+    352  f155		       24 9b	   LF155      BIT	$9B	;3
+    353  f157		       10 25		      BPL	LF17E	;2
+    354  f159		       a5 8d		      LDA	FLOORNO	;3
+    355  f15b		       d0 21		      BNE	LF17E	;2
+    356  f15d		       a9 02		      LDA	#$02	;2
+    357  f15f		       c5 9c		      CMP	$9C	;3
+    358  f161		       d0 1b		      BNE	LF17E	;2
+    359  f163		       c5 9a		      CMP	$9A	;3
+    360  f165		       d0 12		      BNE	LF179	;2
+    361  f167		       a5 9d		      LDA	$9D	;3
+    362  f169		       c9 08		      CMP	#$08	;2
+    363  f16b		       d0 0c		      BNE	LF179	;2
+    364  f16d		       a9 01		      LDA	#$01	;2
+    365  f16f		       85 89		      STA	CLOCK	;3
+    366  f171		       85 8a		      STA	$8A	;3
+    367  f173		       a9 44		      LDA	#$44	;2
+    368  f175		       85 99		      STA	$99	;3
+    369  f177		       d0 05		      BNE	LF17E	;2
+    370  f179		       a2 02	   LF179      LDX	#$02	;2
+    371  f17b		       20 8c f8 	      JSR	LF88C	;6
+    372  f17e		       c6 87	   LF17E      DEC	$87	;5
+    373  f180		       d0 06		      BNE	LF188	;2
+    374  f182		       a9 3c		      LDA	#$3C	;2
+    375  f184		       85 87		      STA	$87	;3
+    376  f186		       c6 df		      DEC	$DF	;5
+    377  f188		       24 8a	   LF188      BIT	$8A	;3
+    378  f18a		       50 12		      BVC	LF19E	;2
+    379  f18c		       a5 83		      LDA	UNKNOWN3	;3
+    380  f18e		       d0 04		      BNE	LF194	;2
+    381  f190		       a5 df		      LDA	$DF	;3
+    382  f192		       d0 0a		      BNE	LF19E	;2
+    383  f194		       a9 00	   LF194      LDA	#0	;2
+    384  f196		       85 85		      STA	$85	;3
+    385  f198		       a5 8a		      LDA	$8A	;3
+    386  f19a		       29 07		      AND	#$07	;2
+    387  f19c		       85 8a		      STA	$8A	;3
+    388  f19e		       a5 8a	   LF19E      LDA	$8A	;3
+    389  f1a0		       49 80		      EOR	#$80	;2
+    390  f1a2		       85 8a		      STA	$8A	;3
+    391  f1a4		       60		      RTS		;6
+    392  f1a5
+    393  f1a5		       20 bf f1    LF1A5      JSR	LF1BF	;6
+    394  f1a8		       a9 00		      LDA	#0	;2
+    395  f1aa		       85 91		      STA	$91	;3
+    396  f1ac		       a5 b5		      LDA	POS_Y	;3
+    397  f1ae		       c9 26		      CMP	#$26	;2
+    398  f1b0		       90 0a		      BCC	LF1BC	;2
+    399  f1b2		       c9 d7		      CMP	#$D7	;2
+    400  f1b4		       b0 04		      BCS	LF1BA	;2
+    401  f1b6		       a9 26		      LDA	#$26	;2
+    402  f1b8		       d0 02		      BNE	LF1BC	;2
+    403  f1ba		       e9 af	   LF1BA      SBC	#$AF	;2
+    404  f1bc		       85 cb	   LF1BC      STA	$CB	;3
+    405  f1be		       60		      RTS		;6
+    406  f1bf
+    407  f1bf		       a9 00	   LF1BF      LDA	#0	;2
+    408  f1c1		       85 e7		      STA	$E7	;3
+    409  f1c3		       85 e8		      STA	$E8	;3
+    410  f1c5		       a5 9b		      LDA	$9B	;3
+    411  f1c7		       29 7f		      AND	#$7F	;2
+    412  f1c9		       85 9b		      STA	$9B	;3
+    413  f1cb		       24 91		      BIT	$91	;3
+    414  f1cd		       70 37		      BVS	LF206	;2
+    415  f1cf		       24 8e		      BIT	MVMT	;3
+    416  f1d1		       70 10		      BVS	LF1E3	;2
+    417  f1d3		       10 31		      BPL	LF206	;2
+    418  f1d5		       e6 e7		      INC	$E7	;5
+    419  f1d7		       a5 aa		      LDA	POS_X	;3
+    420  f1d9		       c9 94		      CMP	#$94	;2
+    421  f1db		       f0 77		      BEQ	LF254	;2
+    422  f1dd		       20 72 f2 	      JSR	LF272	;6
+    423  f1e0		       4c ee f1 	      JMP	LF1EE	;3
+    424  f1e3		       c6 e7	   LF1E3      DEC	$E7	;5
+    425  f1e5		       a5 aa		      LDA	POS_X	;3
+    426  f1e7		       c9 04		      CMP	#$04	;2
+    427  f1e9		       f0 69		      BEQ	LF254	;2
+    428  f1eb		       20 7d f2 	      JSR	LF27D	;6
+    429  f1ee		       20 95 f2    LF1EE      JSR	LF295	;6
+    430  f1f1		       d0 0e		      BNE	LF201	;2
+    431  f1f3		       20 8a f2 	      JSR	LF28A	;6
+    432  f1f6		       d0 09		      BNE	LF201	;2
+    433  f1f8		       a5 aa		      LDA	POS_X	;3
+    434  f1fa		       18		      CLC		;2
+    435  f1fb		       65 e7		      ADC	$E7	;3
+    436  f1fd		       85 aa		      STA	POS_X	;3
+    437  f1ff		       d0 05		      BNE	LF206	;2
+    438  f201		       a2 03	   LF201      LDX	#$03	;2
+    439  f203		       20 8c f8 	      JSR	LF88C	;6
+    440  f206		       24 91	   LF206      BIT	$91	;3
+    441  f208		       30 49		      BMI	LF253	;2 return
+    442  f20a		       a5 8e		      LDA	MVMT	;3
+    443  f20c		       29 30		      AND	#$30	;2
+    444  f20e		       f0 43		      BEQ	LF253	;2 return
+    445  f210		       c9 20		      CMP	#$20	;2
+    446  f212		       f0 1a		      BEQ	LF22E	;2
+    447  f214		       e6 e8		      INC	$E8	;5
+    448  f216		       a5 b5		      LDA	POS_Y	;3
+    449  f218		       c9 fb		      CMP	#$FB	;2
+    450  f21a		       f0 44		      BEQ	LF260	;2
+    451  f21c		       20 6b f2 	      JSR	LF26B	;6
+    452  f21f		       20 9c f2 	      JSR	LF29C	;6
+    453  f222		       d0 2a		      BNE	LF24E	;2
+    454  f224		       20 79 f2 	      JSR	LF279	;6
+    455  f227		       20 9c f2 	      JSR	LF29C	;6
+    456  f22a		       d0 22		      BNE	LF24E	;2
+    457  f22c		       f0 18		      BEQ	LF246	;2
+    458  f22e		       c6 e8	   LF22E      DEC	$E8	;5
+    459  f230		       a5 b5		      LDA	POS_Y	;3
+    460  f232		       c9 01		      CMP	#$01	;2
+    461  f234		       f0 2a		      BEQ	LF260	;2
+    462  f236		       20 6b f2 	      JSR	LF26B	;6
+    463  f239		       20 8e f2 	      JSR	LF28E	;6
+    464  f23c		       d0 10		      BNE	LF24E	;2
+    465  f23e		       20 79 f2 	      JSR	LF279	;6
+    466  f241		       20 8e f2 	      JSR	LF28E	;6
+    467  f244		       d0 08		      BNE	LF24E	;2
+    468  f246		       a5 b5	   LF246      LDA	POS_Y	;3
+    469  f248		       18		      CLC		;2
+    470  f249		       65 e8		      ADC	$E8	;3
+    471  f24b		       85 b5		      STA	POS_Y	;3
+    472  f24d		       60		      RTS		;6
+    473  f24e
+    474  f24e		       a2 03	   LF24E      LDX	#$03	;2
+    475  f250		       20 8c f8 	      JSR	LF88C	;6
+    476  f253		       60	   LF253      RTS		;6
+    477  f254
+    478  f254		       a5 9b	   LF254      LDA	$9B	;3
+    479  f256		       09 80		      ORA	#$80	;2
+    480  f258		       85 9b		      STA	$9B	;3
+    481  f25a		       c9 8f		      CMP	#$8F	;2
+    482  f25c		       f0 a3		      BEQ	LF201	;2
+    483  f25e		       d0 a6		      BNE	LF206	;2
+    484  f260		       a5 9b	   LF260      LDA	$9B	;3
+    485  f262		       09 80		      ORA	#$80	;2
+    486  f264		       85 9b		      STA	$9B	;3
+    487  f266		       c9 8f		      CMP	#$8F	;2
+    488  f268		       f0 e4		      BEQ	LF24E	;2
+    489  f26a		       60		      RTS		;6
+    490  f26b
+    491  f26b		       a5 aa	   LF26B      LDA	POS_X	;3
+    492  f26d		       18		      CLC		;2
+    493  f26e		       69 07		      ADC	#$07	;2
+    494  f270		       d0 0f		      BNE	LF281	;2
+    495  f272		       a5 aa	   LF272      LDA	POS_X	;3
+    496  f274		       18		      CLC		;2
+    497  f275		       69 08		      ADC	#$08	;2
+    498  f277		       d0 08		      BNE	LF281	;2
+    499  f279		       a5 aa	   LF279      LDA	POS_X	;3
+    500  f27b		       d0 04		      BNE	LF281	;2
+    501  f27d		       a4 aa	   LF27D      LDY	POS_X	;3
+    502  f27f		       88		      DEY		;2
+    503  f280		       98		      TYA		;2
+    504  f281		       4a	   LF281      LSR		;2
+    505  f282		       4a		      LSR		;2
+    506  f283		       4a		      LSR		;2
+    507  f284		       4a		      LSR		;2
+    508  f285		       a8		      TAY		;2
+    509  f286		       88		      DEY		;2
+    510  f287		       84 d4		      STY	$D4	;3
+    511  f289		       60		      RTS		;6
+    512  f28a
+    513  f28a		       a5 b5	   LF28A      LDA	POS_Y	;3
+    514  f28c		       d0 13		      BNE	LF2A1	;2
+    515  f28e		       a4 b5	   LF28E      LDY	POS_Y	;3
+    516  f290		       88		      DEY		;2
+    517  f291		       98		      TYA		;2
+    518  f292		       4c a1 f2 	      JMP	LF2A1	;3
+    519  f295		       a5 b5	   LF295      LDA	POS_Y	;3
+    520  f297		       18		      CLC		;2
+    521  f298		       69 02		      ADC	#$02	;2
+    522  f29a		       d0 05		      BNE	LF2A1	;2
+    523  f29c		       a5 b5	   LF29C      LDA	POS_Y	;3
+    524  f29e		       18		      CLC		;2
+    525  f29f		       69 03		      ADC	#$03	;2
+    526  f2a1		       4a	   LF2A1      LSR		;2
+    527  f2a2		       4a		      LSR		;2
+    528  f2a3		       4a		      LSR		;2
+    529  f2a4		       4a		      LSR		;2
+    530  f2a5		       aa		      TAX		;2
+    531  f2a6		       a4 d4		      LDY	$D4	;3
+    532  f2a8		       98		      TYA		;2
+    533  f2a9		       29 08		      AND	#$08	;2
+    534  f2ab		       f0 03		      BEQ	FLOORMASK	;2
+    535  f2ad		       e0 08		      CPX	#$08	;2
+    536  f2af		       60		      RTS		;6
+    537  f2b0
+    538  f2b0							; this routine handles the floor plan playfield sprites
+    539  f2b0							; X appears to be the scanline
+    540  f2b0							;FLOORMASK:
+    541  f2b0				   FLOORMASK
+    542  f2b0		       bd d4 ff 	      LDA	FLOOR0,X	;4
+    543  f2b3		       39 00 fe 	      AND	MASK0,Y	;4
+    544  f2b6		       60		      RTS		;6
+    545  f2b7
+    546  f2b7		       a9 30	   LF2B7      LDA	#$30	;2
+    547  f2b9		       85 04		      STA	NUSIZ0	;3
+    548  f2bb		       a9 00		      LDA	#0	;2
+    549  f2bd		       85 09		      STA	COLUBK	;3
+    550  f2bf		       85 f1		      STA	$F1	;3
+    551  f2c1		       85 1d		      STA	ENAM0	;3
+    552  f2c3		       85 1f		      STA	ENABL	;3 Ball sprite
+    553  f2c5		       85 05		      STA	NUSIZ1	;3
+    554  f2c7		       a5 99		      LDA	$99	;3
+    555  f2c9		       c9 02		      CMP	#$02	;2
+    556  f2cb		       f0 0b		      BEQ	LF2D8	;2
+    557  f2cd		       29 04		      AND	#$04	;2
+    558  f2cf		       f0 0a		      BEQ	LF2DB	;2
+    559  f2d1		       a5 89		      LDA	CLOCK	;3
+    560  f2d3		       d0 03		      BNE	LF2D8	;2
+    561  f2d5		       20 41 f1 	      JSR	LF141	;6
+    562  f2d8		       4c 15 f3    LF2D8      JMP	LF315	;3
+    563  f2db		       a5 80	   LF2DB      LDA	$80	;3
+    564  f2dd		       f0 0e		      BEQ	LF2ED	;2
+    565  f2df		       20 7d f5 	      JSR	LF57D	;6
+    566  f2e2		       a5 89		      LDA	CLOCK	;3
+    567  f2e4		       4a		      LSR		;2
+    568  f2e5		       29 07		      AND	#$07	;2
+    569  f2e7		       aa		      TAX		;2
+    570  f2e8		       bd 92 ff 	      LDA	LFF92,X	;4
+    571  f2eb		       d0 2b		      BNE	LF318	;2
+    572  f2ed		       a6 81	   LF2ED      LDX	$81	;3
+    573  f2ef		       f0 0f		      BEQ	LF300	;2
+    574  f2f1		       a6 e9		      LDX	$E9	;3
+    575  f2f3		       a9 08		      LDA	#$08	;2
+    576  f2f5		       85 ed		      STA	$ED	;3
+    577  f2f7		       a5 8d		      LDA	FLOORNO	;3
+    578  f2f9		       95 a0		      STA	$A0,X	;4
+    579  f2fb		       20 26 f5 	      JSR	LF526	;6
+    580  f2fe		       10 15		      BPL	LF315	;2
+    581  f300		       24 8a	   LF300      BIT	$8A	;3
+    582  f302		       50 0e		      BVC	LF312	;2
+    583  f304		       24 8a		      BIT	$8A	;3
+    584  f306		       30 05		      BMI	LF30D	;2
+    585  f308		       20 f1 f4 	      JSR	LF4F1	;6
+    586  f30b		       10 08		      BPL	LF315	;2
+    587  f30d		       20 7d f5    LF30D      JSR	LF57D	;6
+    588  f310		       10 3b		      BPL	LF34D	;2
+    589  f312		       20 7d f5    LF312      JSR	LF57D	;6
+    590  f315		       ad 80 02    LF315      LDA	SWCHA	;4
+    591  f318		       a0 e7	   LF318      LDY	#$E7	;2
+    592  f31a		       84 d8		      STY	$D8	;3
+    593  f31c		       84 d9		      STY	$D9	;3
+    594  f31e		       84 da		      STY	$DA	;3
+    595  f320		       a0 a5		      LDY	#$A5	;2
+    596  f322		       a2 01		      LDX	#$01	;2
+    597  f324		       2a		      ROL		;2
+    598  f325		       b0 02		      BCS	LF329	;2
+    599  f327		       a0 c6		      LDY	#$C6	;2
+    600  f329		       2a	   LF329      ROL		;2
+    601  f32a		       b0 02		      BCS	LF32E	;2
+    602  f32c		       a0 63		      LDY	#$63	;2
+    603  f32e		       2a	   LF32E      ROL		;2
+    604  f32f		       b0 01		      BCS	LF332	;2
+    605  f331		       ca		      DEX		;2
+    606  f332		       2a	   LF332      ROL		;2
+    607  f333		       b0 01		      BCS	LF336	;2
+    608  f335		       e8		      INX		;2
+    609  f336							; Set up eyes
+    610  f336							; This could set up the eyeball graphic sprite
+    611  f336							; into memory via the EYE_PTR $E3, which leads
+    612  f336							; to D8 (into ram) when the scanline is going
+    613  f336							; to draw the start of the centered eyes.
+    614  f336		       98	   LF336      TYA		;2
+    615  f337		       95 d8		      STA	$D8,X	;4
+    616  f339		       a9 d8		      LDA	#$D8	;2
+    617  f33b		       85 e3		      STA	EYE_PTR	;3
+    618  f33d		       a9 00		      LDA	#0	;2
+    619  f33f		       85 e4		      STA	$E4	;3
+    620  f341		       a9 03		      LDA	#$03	;2
+    621  f343		       85 ee		      STA	$EE	;3
+    622  f345		       a0 01		      LDY	#$01	;2
+    623  f347		       a5 cb		      LDA	$CB	;3
+    624  f349		       a6 aa		      LDX	POS_X	;3
+    625  f34b		       d0 4a		      BNE	LF397	;2
+    626  f34d		       a5 cf	   LF34D      LDA	$CF	;3
+    627  f34f		       85 e0		      STA	$E0	;3
+    628  f351		       a5 cc		      LDA	GAMEMODE	;3
+    629  f353		       f0 0a		      BEQ	LF35F	;2
+    630  f355		       24 88		      BIT	$88	;3
+    631  f357		       30 06		      BMI	LF35F	;2
+    632  f359		       a9 02		      LDA	#$02	;2
+    633  f35b		       85 1f		      STA	ENABL	;3 ball sprite
+    634  f35d		       85 1d		      STA	ENAM0	;3
+    635  f35f		       a5 89	   LF35F      LDA	CLOCK	;3
+    636  f361		       29 06		      AND	#$06	;2
+    637  f363		       4a		      LSR		;2
+    638  f364		       aa		      TAX		;2
+    639  f365		       bd 9a ff 	      LDA	LFF9A,X	;4 eyeball sprite?
+    640  f368		       85 e3		      STA	$E3	;3
+    641  f36a		       a9 ff		      LDA	#STKTOP	;2
+    642  f36c		       85 e4		      STA	$E4	;3
+    643  f36e		       a5 aa		      LDA	POS_X	;3
+    644  f370		       38		      SEC		;2
+    645  f371		       e9 0d		      SBC	#$0D	;2
+    646  f373		       b0 06		      BCS	LF37B	;2
+    647  f375		       69 a0		      ADC	#$A0	;2
+    648  f377		       a2 97		      LDX	#$97	;2
+    649  f379		       d0 06		      BNE	LF381	;2 Jump if X != 0. NOTE: BNE jumps if z flag is 0
+    650  f37b							;  LDX/A/Y, the z flag is 1 when the result is zero, and
+    651  f37b							;  zero when the result is nonzero
+    652  f37b		       c9 84	   LF37B      CMP	#132	;2 84h original
+    653  f37d		       90 08		      BCC	LF387	;2
+    654  f37f		       a2 00		      LDX	#0	;2
+    655  f381		       86 e0	   LF381      STX	$E0	;3
+    656  f383		       a2 02		      LDX	#$02	;2
+    657  f385		       86 1f		      STX	ENABL	;3 ball sprite
+    658  f387		       aa	   LF387      TAX		;2
+    659  f388		       a9 1c		      LDA	#$1C	;2
+    660  f38a		       85 ee		      STA	$EE	;3
+    661  f38c		       a9 07		      LDA	#$07	;2
+    662  f38e		       85 05		      STA	NUSIZ1	;3
+    663  f390		       a0 04		      LDY	#$04	;2
+    664  f392		       a5 cb		      LDA	$CB	;3
+    665  f394		       38		      SEC		;2
+    666  f395		       e9 0c		      SBC	#$0C	;2
+    667  f397							; Might set background PF color based on game mode
+    668  f397							; and floor
+    669  f397		       85 f0	   LF397      STA	$F0	;3
+    670  f399		       86 dd		      STX	$DD	;3
+    671  f39b		       84 f2		      STY	$F2	;3
+    672  f39d		       a0 01		      LDY	#$01	;2
+    673  f39f		       84 f3		      STY	$F3	;3
+    674  f3a1		       88		      DEY		;2
+    675  f3a2		       84 f4		      STY	$F4	;3
+    676  f3a4		       84 f5		      STY	PFCOLOR	;3
+    677  f3a6		       a9 08		      LDA	#$08	;2
+    678  f3a8		       18		      CLC		;2
+    679  f3a9		       65 8d		      ADC	FLOORNO	;3
+    680  f3ab		       a6 cc		      LDX	GAMEMODE	;3
+    681  f3ad		       d0 04		      BNE	LF3B3	;2
+    682  f3af		       85 f5		      STA	PFCOLOR	;3
+    683  f3b1		       10 02		      BPL	LF3B5	;2
+    684  f3b3		       85 f4	   LF3B3      STA	$F4	;3
+    685  f3b5		       a5 80	   LF3B5      LDA	$80	;3
+    686  f3b7		       f0 04		      BEQ	LF3BD	;2
+    687  f3b9		       a9 03		      LDA	#$03	;2
+    688  f3bb		       d0 0b		      BNE	LF3C8	;2
+    689  f3bd		       a5 83	   LF3BD      LDA	UNKNOWN3	;3
+    690  f3bf		       f0 14		      BEQ	LF3D5	;2
+    691  f3c1		       2c 82 02 	      BIT	SWCHB	;4
+    692  f3c4		       70 0f		      BVS	LF3D5	;2
+    693  f3c6		       a9 27		      LDA	#$27	;2
+    694  f3c8		       25 89	   LF3C8      AND	CLOCK	;3
+    695  f3ca		       d0 09		      BNE	LF3D5	;2
+    696  f3cc		       a5 eb		      LDA	$EB	;3
+    697  f3ce		       6a		      ROR		;2
+    698  f3cf		       90 04		      BCC	LF3D5	;2
+    699  f3d1		       a0 01		      LDY	#$01	;2
+    700  f3d3		       84 f5		      STY	PFCOLOR	;3
+    701  f3d5		       a2 f7	   LF3D5      LDX	#$F7	;2
+    702  f3d7		       a0 00		      LDY	#0	;2
+    703  f3d9		       84 d0		      STY	$D0	;3
+    704  f3db		       ad 82 02 	      LDA	SWCHB	;4
+    705  f3de		       29 08		      AND	#$08	;2
+    706  f3e0		       d0 06		      BNE	LF3E8	;2
+    707  f3e2		       a9 0c		      LDA	#$0C	;2
+    708  f3e4		       85 d0		      STA	$D0	;3
+    709  f3e6		       a2 07		      LDX	#$07	;2
+    710  f3e8							; TODO: i think this has to do with the cycling BG color
+    711  f3e8		       86 d3	   LF3E8      STX	$D3	;3
+    712  f3ea		       a5 84		      LDA	$84	;3
+    713  f3ec		       29 10		      AND	#$10	;2
+    714  f3ee		       f0 0f		      BEQ	LF3FF	;2
+    715  f3f0		       a5 89		      LDA	CLOCK	;3
+    716  f3f2		       d0 02		      BNE	LF3F6	;2
+    717  f3f4		       e6 84		      INC	$84	;5 mem 84h increments every FF frames
+    718  f3f6		       a5 84	   LF3F6      LDA	$84	;3
+    719  f3f8		       09 10		      ORA	#$10	;2
+    720  f3fa		       85 84		      STA	$84	;3
+    721  f3fc		       a8		      TAY		;2
+    722  f3fd		       d0 02		      BNE	LF401	;2
+    723  f3ff		       a2 ff	   LF3FF      LDX	#STKTOP	;2
+    724  f401		       84 d1	   LF401      STY	$D1	;3
+    725  f403		       86 d2		      STX	$D2	;3
+    726  f405		       a2 04		      LDX	#$04	;2
+    727  f407		       b5 f1	   LF407      LDA	$F1,X	;4
+    728  f409		       18		      CLC		;2
+    729  f40a		       65 d0		      ADC	$D0	;3
+    730  f40c		       a8		      TAY		;2
+    731  f40d		       b9 e4 ff 	      LDA	LFFE4,Y	;4
+    732  f410		       45 d1		      EOR	$D1	;3
+    733  f412		       25 d2		      AND	$D2	;3
+    734  f414		       95 f1		      STA	$F1,X	;4
+    735  f416		       ca		      DEX		;2
+    736  f417		       10 ee		      BPL	LF407	;2
+    737  f419		       a5 f2		      LDA	$F2	;3
+    738  f41b		       85 07		      STA	COLUP1	;3
+    739  f41d		       a5 f1		      LDA	$F1	;3
+    740  f41f		       c9 aa		      CMP	#$AA	;2
+    741  f421		       d0 06		      BNE	LF429	;2
+    742  f423		       a5 d3		      LDA	$D3	;3
+    743  f425		       09 08		      ORA	#$08	;2
+    744  f427		       25 89		      AND	CLOCK	;3
+    745  f429		       85 06	   LF429      STA	COLUP0	;3
+    746  f42b		       a5 99		      LDA	$99	;3
+    747  f42d		       29 04		      AND	#$04	;2
+    748  f42f		       f0 06		      BEQ	LF437	;2
+    749  f431		       a5 89		      LDA	CLOCK	;3
+    750  f433		       25 d3		      AND	$D3	;3
+    751  f435		       85 f5		      STA	PFCOLOR	;3
+    752  f437		       a2 04	   LF437      LDX	#$04	;2
+    753  f439		       a5 99		      LDA	$99	;3
+    754  f43b		       c9 02		      CMP	#$02	;2
+    755  f43d		       d0 02		      BNE	LF441	;2
+    756  f43f		       a2 01		      LDX	#$01	;2
+    757  f441		       a9 02	   LF441      LDA	#$02	;2
+    758  f443		       e0 02		      CPX	#$02	;2
+    759  f445		       b0 01		      BCS	LF448	;2
+    760  f447		       4a		      LSR		;2  shift right one bit (accumulator)
+    761  f448		       18	   LF448      CLC		;2
+    762  f449		       75 dc		      ADC	$DC,X	;4
+    763  f44b		       a0 02		      LDY	#$02	;2
+    764  f44d		       38		      SEC		;2
+    765  f44e		       c8	   LF44E      INY		;2
+    766  f44f		       e5 0f		      SBC	PF2	;3
+    767  f451		       b0 fb		      BCS	LF44E	;2
+    768  f453		       49 ff		      EOR	#STKTOP	;2
+    769  f455		       e9 06		      SBC	#$06	;2
+    770  f457		       0a		      ASL		;2 arithmetic shift left one bit, accumulator
+    771  f458		       0a		      ASL		;2
+    772  f459		       0a		      ASL		;2
+    773  f45a		       0a		      ASL		;2
+    774  f45b		       85 02		      STA	WSYNC	;3
+    775  f45d		       88	   LF45D      DEY		;2
+    776  f45e		       10 fd		      BPL	LF45D	;2
+    777  f460		       95 10		      STA	RESP0,X	;4
+    778  f462		       95 20		      STA	HMP0,X	;4
+    779  f464		       ca		      DEX		;2
+    780  f465		       10 da		      BPL	LF441	;2
+    781  f467		       85 02		      STA	WSYNC	;3
+    782  f469		       85 2a		      STA	HMOVE	;3
+    783  f46b		       a9 4f		      LDA	#79	;2 4Fh
+    784  f46d		       85 cd		      STA	LINENO	;3
+    785  f46f		       85 d3		      STA	$D3	;3
+    786  f471		       a9 00		      LDA	#0	;2
+    787  f473		       85 d4		      STA	$D4	;3
+    788  f475		       24 8a		      BIT	$8A	;3
+    789  f477		       50 28		      BVC	LF4A1	;2
+    790  f479		       24 88		      BIT	$88	;3
+    791  f47b		       30 24		      BMI	LF4A1	;2
+    792  f47d		       a5 cc		      LDA	GAMEMODE	;3
+    793  f47f		       f0 20		      BEQ	LF4A1	;2
+    794  f481		       a5 8c		      LDA	$8C	;3
+    795  f483		       f0 07		      BEQ	LF48C	;2
+    796  f485		       20 db f4 	      JSR	LF4DB	;6
+    797  f488		       30 02		      BMI	LF48C	;2
+    798  f48a		       85 d4		      STA	$D4	;3
+    799  f48c		       a5 8b	   LF48C      LDA	$8B	;3
+    800  f48e		       f0 11		      BEQ	LF4A1	;2
+    801  f490		       aa		      TAX		;2
+    802  f491		       20 db f4 	      JSR	LF4DB	;6
+    803  f494		       c9 50		      CMP	#$50	;2
+    804  f496		       b0 09		      BCS	LF4A1	;2
+    805  f498		       85 d3		      STA	$D3	;3
+    806  f49a		       a9 08		      LDA	#$08	;2
+    807  f49c		       85 d0		      STA	$D0	;3
+    808  f49e		       8a		      TXA		;2
+    809  f49f		       d0 0e		      BNE	LF4AF	;2
+    810  f4a1		       a5 b5	   LF4A1      LDA	POS_Y	;3
+    811  f4a3		       c9 26		      CMP	#$26	;2
+    812  f4a5		       90 16		      BCC	LF4BD	;2
+    813  f4a7		       c9 d6		      CMP	#$D6	;2
+    814  f4a9		       b0 18		      BCS	LF4C3	;2
+    815  f4ab		       69 2a		      ADC	#$2A	;2
+    816  f4ad		       85 d0		      STA	$D0	;3
+    817  f4af		       4a	   LF4AF      LSR		;2 Logical Shift One Bit Right (accumulator)
+    818  f4b0		       4a		      LSR		;2
+    819  f4b1		       4a		      LSR		;2
+    820  f4b2		       4a		      LSR		;2
+    821  f4b3		       49 0f		      EOR	#$0F	;2
+    822  f4b5		       85 d1		      STA	$D1	;3
+    823  f4b7		       0a		      ASL		;2
+    824  f4b8		       65 d1		      ADC	$D1	;3
+    825  f4ba		       aa		      TAX		;2
+    826  f4bb		       10 0c		      BPL	LF4C9	;2
+    827  f4bd		       a2 1e	   LF4BD      LDX	#$1E	;2
+    828  f4bf		       a9 00		      LDA	#0	;2
+    829  f4c1		       f0 04		      BEQ	LF4C7	;2
+    830  f4c3		       a2 00	   LF4C3      LDX	#0	;2
+    831  f4c5		       a9 0f		      LDA	#$0F	;2
+    832  f4c7		       85 d0	   LF4C7      STA	$D0	;3
+    833  f4c9							; This might be some kind of deterministic PRNG
+    834  f4c9		       a5 ec	   LF4C9      LDA	$EC	;3 Loads RAM $EC into A (these get swapped every cycle)
+    835  f4cb		       45 eb		      EOR	$EB	;3 XOR $EC and $EB to A
+    836  f4cd		       0a		      ASL		;2 Multiply result by two ...
+    837  f4ce		       0a		      ASL		;2 ... and again.
+    838  f4cf		       26 eb		      ROL	$EB	;5 Rotate bits left in $EB ...
+    839  f4d1		       26 ec		      ROL	$EC	;5 ... and $EC
+    840  f4d3		       a5 eb		      LDA	$EB	;3
+    841  f4d5		       60		      RTS		;6
+    842  f4d6
+    843  f4d6		       07 01 06 06*LF4D6      .byte.b	$07,$01,$06,$06,$06
+    844  f4db		       18	   LF4DB      CLC		;2
+    845  f4dc		       65 cb		      ADC	$CB	;3
+    846  f4de		       38		      SEC		;2
+    847  f4df		       e5 b5		      SBC	POS_Y	;3
+    848  f4e1		       60		      RTS		;6
+    849  f4e2
+    850  f4e2		       8a	   LF4E2      TXA		;2
+    851  f4e3		       e0 02		      CPX	#$02	;2
+    852  f4e5		       90 02		      BCC	LF4E9	;2
+    853  f4e7		       b5 9b		      LDA	$9B,X	;4
+    854  f4e9		       0a	   LF4E9      ASL		;2
+    855  f4ea		       0a		      ASL		;2
+    856  f4eb		       0a		      ASL		;2
+    857  f4ec		       69 08		      ADC	#$08	;2
+    858  f4ee		       a2 fe		      LDX	#$FE	;2
+    859  f4f0		       60		      RTS		;6
+    860  f4f1
+    861  f4f1		       a6 86	   LF4F1      LDX	$86	;3
+    862  f4f3		       ca	   LF4F3      DEX		;2
+    863  f4f4		       10 0f		      BPL	LF505	;2
+    864  f4f6		       a2 04		      LDX	#$04	;2
+    865  f4f8		       d0 0b		      BNE	LF505	;2
+    866  f4fa		       e4 86	   LF4FA      CPX	$86	;3
+    867  f4fc		       d0 f5		      BNE	LF4F3	;2
+    868  f4fe		       a9 00	   LF4FE      LDA	#0	;2
+    869  f500		       85 dc		      STA	$DC	;3
+    870  f502		       85 ed		      STA	$ED	;3
+    871  f504		       60		      RTS		;6
+    872  f505
+    873  f505		       e4 9a	   LF505      CPX	$9A	;3
+    874  f507		       f0 f1		      BEQ	LF4FA	;2
+    875  f509		       e0 02		      CPX	#$02	;2
+    876  f50b		       90 04		      BCC	LF511	;2
+    877  f50d		       b5 9b		      LDA	$9B,X	;4
+    878  f50f		       30 e9		      BMI	LF4FA	;2
+    879  f511		       a5 cc	   LF511      LDA	GAMEMODE	;3
+    880  f513		       c9 02		      CMP	#$02	;2
+    881  f515		       b0 04		      BCS	LF51B	;2
+    882  f517		       e0 00		      CPX	#0	;2
+    883  f519		       f0 df		      BEQ	LF4FA	;2
+    884  f51b		       b5 a0	   LF51B      LDA	$A0,X	;4
+    885  f51d		       c5 8d		      CMP	FLOORNO	;3
+    886  f51f		       d0 d9		      BNE	LF4FA	;2
+    887  f521		       20 3d f5 	      JSR	LF53D	;6
+    888  f524		       f0 d4		      BEQ	LF4FA	;2
+    889  f526		       a4 81	   LF526      LDY	$81	;3
+    890  f528		       d0 05		      BNE	LF52F	;2
+    891  f52a		       bd d6 f4 	      LDA	LF4D6,X	;4
+    892  f52d		       85 f1		      STA	$F1	;3
+    893  f52f		       86 86	   LF52F      STX	$86	;3
+    894  f531		       20 e2 f4 	      JSR	LF4E2	;6
+    895  f534		       85 e1		      STA	$E1	;3
+    896  f536		       86 e2		      STX	$E2	;3
+    897  f538		       a9 08		      LDA	#$08	;2
+    898  f53a		       85 ed		      STA	$ED	;3
+    899  f53c		       60		      RTS		;6
+    900  f53d
+    901  f53d		       a5 aa	   LF53D      LDA	POS_X	;3
+    902  f53f		       38		      SEC		;2
+    903  f540		       f5 ab		      SBC	$AB,X	;4
+    904  f542		       b0 04		      BCS	LF548	;2
+    905  f544		       49 ff		      EOR	#STKTOP	;2
+    906  f546		       69 01		      ADC	#$01	;2
+    907  f548		       85 d0	   LF548      STA	$D0	;3
+    908  f54a		       a5 b5		      LDA	POS_Y	;3
+    909  f54c		       38		      SEC		;2
+    910  f54d		       f5 b6		      SBC	$B6,X	;4
+    911  f54f		       b0 04		      BCS	LF555	;2
+    912  f551		       49 ff		      EOR	#STKTOP	;2
+    913  f553		       69 01		      ADC	#$01	;2
+    914  f555		       85 d1	   LF555      STA	$D1	;3
+    915  f557		       c5 d0		      CMP	$D0	;3
+    916  f559		       b0 03		      BCS	LF55E	;2
+    917  f55b		       4a		      LSR		;2
+    918  f55c		       10 02		      BPL	LF560	;2
+    919  f55e		       46 d0	   LF55E      LSR	$D0	;5
+    920  f560		       18	   LF560      CLC		;2
+    921  f561		       65 d0		      ADC	$D0	;3
+    922  f563		       c9 11		      CMP	#$11	;2
+    923  f565		       b0 2e		      BCS	LF595	;2
+    924  f567		       b5 ab		      LDA	$AB,X	;4
+    925  f569		       85 dc		      STA	$DC	;3
+    926  f56b		       b5 b6		      LDA	$B6,X	;4
+    927  f56d		       20 db f4    LF56D      JSR	LF4DB	;6
+    928  f570		       c9 50		      CMP	#$50	;2
+    929  f572		       90 04		      BCC	LF578	;2
+    930  f574		       c9 f9		      CMP	#$F9	;2
+    931  f576		       90 1d		      BCC	LF595	;2
+    932  f578		       85 ef	   LF578      STA	$EF	;3
+    933  f57a		       a9 01		      LDA	#$01	;2
+    934  f57c		       60		      RTS		;6
+    935  f57d
+    936  f57d		       a6 85	   LF57D      LDX	$85	;3
+    937  f57f		       ca	   LF57F      DEX		;2
+    938  f580		       10 16		      BPL	LF598	;2
+    939  f582		       a6 ea		      LDX	$EA	;3
+    940  f584		       24 8a		      BIT	$8A	;3
+    941  f586		       50 10		      BVC	LF598	;2
+    942  f588		       e8		      INX		;2
+    943  f589		       20 e7 f5 	      JSR	LF5E7	;6
+    944  f58c		       f0 03		      BEQ	LF591	;2
+    945  f58e		       86 85		      STX	$85	;3
+    946  f590		       60		      RTS		;6
+    947  f591
+    948  f591		       e4 85	   LF591      CPX	$85	;3
+    949  f593		       d0 ea		      BNE	LF57F	;2
+    950  f595		       4c fe f4    LF595      JMP	LF4FE	;3
+    951  f598		       20 9e f5    LF598      JSR	LF59E	;6
+    952  f59b		       f0 f4		      BEQ	LF591	;2
+    953  f59d		       60		      RTS		;6
+    954  f59e
+    955  f59e		       b5 a5	   LF59E      LDA	$A5,X	;4
+    956  f5a0		       c5 8d		      CMP	FLOORNO	;3
+    957  f5a2		       d0 f1		      BNE	LF595	;2
+    958  f5a4		       a5 cc		      LDA	GAMEMODE	;3
+    959  f5a6		       f0 12		      BEQ	LF5BA	;2
+    960  f5a8		       a5 80		      LDA	$80	;3
+    961  f5aa		       d0 0e		      BNE	LF5BA	;2
+    962  f5ac		       a5 83		      LDA	UNKNOWN3	;3
+    963  f5ae		       f0 e5		      BEQ	LF595	;2
+    964  f5b0		       b5 c5		      LDA	$C5,X	;4
+    965  f5b2		       c5 9c		      CMP	$9C	;3
+    966  f5b4		       f0 04		      BEQ	LF5BA	;2
+    967  f5b6		       c5 97		      CMP	$97	;3
+    968  f5b8		       d0 db		      BNE	LF595	;2
+    969  f5ba		       e8	   LF5BA      INX		;2
+    970  f5bb		       86 f1		      STX	$F1	;3
+    971  f5bd		       ca		      DEX		;2
+    972  f5be		       b5 b0		      LDA	$B0,X	;4
+    973  f5c0		       85 dc		      STA	$DC	;3
+    974  f5c2		       b5 bb		      LDA	$BB,X	;4
+    975  f5c4		       20 6d f5 	      JSR	LF56D	;6
+    976  f5c7		       f0 c8		      BEQ	LF591	;2
+    977  f5c9		       86 85		      STX	$85	;3
+    978  f5cb		       a9 50		      LDA	#$50	;2
+    979  f5cd		       18		      CLC		;2
+    980  f5ce		       7d e2 f5 	      ADC	LF5E2,X	;4
+    981  f5d1		       24 eb		      BIT	$EB	;3
+    982  f5d3		       70 02		      BVS	LF5D7	;2
+    983  f5d5		       69 0a		      ADC	#$0A	;2
+    984  f5d7		       85 e1	   LF5D7      STA	$E1	;3
+    985  f5d9		       a9 fe		      LDA	#$FE	;2
+    986  f5db		       85 e2		      STA	$E2	;3
+    987  f5dd		       a9 0a		      LDA	#$0A	;2
+    988  f5df		       85 ed		      STA	$ED	;3
+    989  f5e1		       60		      RTS		;6
+    990  f5e2
+    991  f5e2		       00 14 28 28*LF5E2      .byte.b	$00,$14,$28,$28,$28
+    992  f5e7		       a5 9b	   LF5E7      LDA	$9B	;3
+    993  f5e9		       29 0f		      AND	#$0F	;2
+    994  f5eb		       c9 0f		      CMP	#$0F	;2
+    995  f5ed		       f0 3c		      BEQ	LF62B	;2
+    996  f5ef		       a8		      TAY		;2
+    997  f5f0		       c0 04		      CPY	#$04	;2
+    998  f5f2		       90 05		      BCC	LF5F9	;2
+    999  f5f4		       98		      TYA		;2
+   1000  f5f5		       29 03		      AND	#$03	;2
+   1001  f5f7		       49 01		      EOR	#$01	;2
+   1002  f5f9		       85 d0	   LF5F9      STA	$D0	;3
+   1003  f5fb		       0a		      ASL		;2
+   1004  f5fc		       0a		      ASL		;2
+   1005  f5fd		       0a		      ASL		;2
+   1006  f5fe		       0a		      ASL		;2
+   1007  f5ff		       18		      CLC		;2
+   1008  f600		       65 d0		      ADC	$D0	;3
+   1009  f602		       69 8c		      ADC	#$8C	;2
+   1010  f604		       85 e1		      STA	$E1	;3
+   1011  f606		       a9 00		      LDA	#0	;2
+   1012  f608		       69 fe		      ADC	#$FE	;2
+   1013  f60a		       85 e2		      STA	$E2	;3
+   1014  f60c		       98		      TYA		;2
+   1015  f60d		       29 03		      AND	#$03	;2
+   1016  f60f		       a8		      TAY		;2
+   1017  f610		       b9 88 ff 	      LDA	LFF88,Y	;4
+   1018  f613		       20 db f4 	      JSR	LF4DB	;6
+   1019  f616		       85 ef		      STA	$EF	;3
+   1020  f618		       a4 9c		      LDY	$9C	;3
+   1021  f61a		       b9 8c ff 	      LDA	LFF8C,Y	;4
+   1022  f61d		       85 dc		      STA	$DC	;3
+   1023  f61f		       a9 00		      LDA	#0	;2
+   1024  f621		       85 f1		      STA	$F1	;3
+   1025  f623		       a9 11		      LDA	#$11	;2
+   1026  f625		       85 ed		      STA	$ED	;3
+   1027  f627		       a9 35		      LDA	#$35	;2
+   1028  f629		       85 04		      STA	NUSIZ0	;3
+   1029  f62b		       60	   LF62B      RTS		;6
+   1030  f62c
+   1031  f62c							; Entry point to drawing new playfield. Begins with
+   1032  f62c							; collusion clearing and some setup, then draws
+   1033  f62c							; field and sprites
+   1034  f62c							;LF62C:
+   1035  f62c				   STARTPF
+   1036  f62c		       85 2c		      STA	CXCLR	;3 Clear collision latches, we're drawing a new
+   1037  f62e							;  playfield
+   1038  f62e		       a0 00		      LDY	#0	;2
+   1039  f630		       a5 cd	   LF630      LDA	LINENO	;3
+   1040  f632		       c5 d3		      CMP	$D3	;3
+   1041  f634		       f0 08		      BEQ	LF63E	;2
+   1042  f636		       85 02		      STA	WSYNC	;3
+   1043  f638		       85 02		      STA	WSYNC	;3
+   1044  f63a		       c6 cd		      DEC	LINENO	;5
+   1045  f63c		       10 f2		      BPL	LF630	;2
+   1046  f63e
+   1047  f63e		       a5 d0	   LF63E      LDA	$D0	; (initially 175)
+   1048  f640		       29 0f		      AND	#$0F
+   1049  f642		       d0 03		      BNE	LF647	; We don't need to move to the next part of
+   1050  f644							; the playfield (it gets repeated vertically)
+   1051  f644		       e8		      INX		; Use the next playfield sprites (organized in
+   1052  f645							; blocks of three (PF0,PF1,PF2)
+   1053  f645		       e8		      INX
+   1054  f646		       e8		      INX
+   1055  f647
+   1056  f647							; This subroutine handles drawing the background playfield
+   1057  f647							; Playfield breakdown
+   1058  f647							;   PF0: ABCD ----
+   1059  f647							;   PF1: EFGH IJKL
+   1060  f647							;   PF2: MNOP QRST
+   1061  f647							;
+   1062  f647							; Line result (spaces just highlight PF registers)
+   1063  f647							; Mirrored:
+   1064  f647							;   DCBA EFGHIJKL TSRQPONM MNOPQRST LKJIHGFE ABCD
+   1065  f647							; Repeated:
+   1066  f647							;   DCBA EFGHIJKL TSRQPONM DCBA EFGHIJKL TSRQPONM
+   1067  f647
+   1068  f647							; Main playfield kernel
+   1069  f647							; Params:
+   1070  f647							;   Y = player 1 graphic sprite
+   1071  f647							;   X = playfield sprite offset
+   1072  f647							;
+   1073  f647							; Initial ram settings:
+   1074  f647							;   LINENO = 79 (4Fh)
+   1075  f647		       85 02	   LF647      STA	WSYNC	;3
+   1076  f649		       a5 f5		      LDA	PFCOLOR	;3 loads wall color from RAM
+   1077  f64b		       85 08		      STA	COLUPF	;3 sets background color
+   1078  f64d		       84 1c		      STY	GRP1	;3 draw player 1 sprite (passed in above, via Y)
+   1079  f64f		       bd d0 fe 	      LDA	GFX0,X	;4 load playfield sprite to A
+   1080  f652		       85 0d		      STA	PF0	;3 draw playfield 0
+   1081  f654		       bd d1 fe 	      LDA	GFX1,X	;4
+   1082  f657		       85 0e		      STA	PF1	;3 loads $F0 to playfield 1 RAM location
+   1083  f659		       bd d2 fe 	      LDA	GFX2,X	;4
+   1084  f65c		       85 0f		      STA	PF2	;3 selects a sprite from SPRITES1, draws to playfield
+   1085  f65e							;  this could be a piece of text, etc
+   1086  f65e		       a5 cd		      LDA	LINENO	;3
+   1087  f660		       38		      SEC		;2 set carry ...
+   1088  f661		       e5 ef		      SBC	$EF	;3 subtract with carry (A-mem(EF)) (first pass: A - 61 == 12)
+   1089  f663		       c5 ed		      CMP	$ED	;3 (initially, EDh=0)
+   1090  f665		       b0 26		      BCS	LF68D	;2 branch when carry set (yes, on first)
+   1091  f667		       a8		      TAY		;2
+   1092  f668		       b1 e1		      LDA	($E1),Y	;5
+   1093  f66a		       a8		      TAY		;2
+   1094  f66b		       c6 cd	   LF66B      DEC	LINENO	;5 LINENO--
+   1095  f66d		       a5 cd		      LDA	LINENO	;3
+   1096  f66f		       c5 d4		      CMP	$D4	;3 LINENO == mem($D4)
+   1097  f671		       f0 1e		      BEQ	LF691	;2
+   1098  f673		       c6 d0		      DEC	$D0	;5
+   1099  f675		       85 02		      STA	WSYNC	;3
+   1100  f677		       84 1b		      STY	GRP0	;3 draws player 0 sprite from Y
+   1101  f679		       a5 cd		      LDA	LINENO	; This block checks to see if
+   1102  f67b		       38		      SEC		; our scanline is close to the same line ($F0)
+   1103  f67c		       e5 f0		      SBC	$F0	; as the player (EE=3 if eyes, more if torch)
+   1104  f67e		       c5 ee		      CMP	$EE	; and then jumps to set player sprite in Y.
+   1105  f680		       b0 07		      BCS	LF689	;
+   1106  f682		       a8		      TAY		;2
+   1107  f683		       b1 e3		      LDA	(EYE_PTR),Y	;5 mem(PTR($E3)+Y), pointer into mem for the eyes
+   1108  f685		       a8		      TAY		;2 set eye graphic into Y for later drawing
+   1109  f686		       4c 3e f6 	      JMP	LF63E	;3
+   1110  f689		       a0 00	   LF689      LDY	#0	;2
+   1111  f68b		       f0 b1		      BEQ	LF63E	;2
+   1112  f68d		       a0 00	   LF68D      LDY	#0	;2
+   1113  f68f		       f0 da		      BEQ	LF66B	;2 always jump to LF66B (clear player 1 sprite)
+   1114  f691		       85 02	   LF691      STA	WSYNC	;3
+   1115  f693		       a9 00		      LDA	#0	;2
+   1116  f695		       85 1b		      STA	GRP0	;3 draws A ref sprite via GRP0
+   1117  f697		       85 1c		      STA	GRP1	;3 draws A reg sprite via GRP1
+   1118  f699		       85 0e		      STA	PF1	;3
+   1119  f69b		       85 0f		      STA	PF2	;3
+   1120  f69d		       85 1d		      STA	ENAM0	;3
+   1121  f69f		       85 1f		      STA	ENABL	;3 ball sprite
+   1122  f6a1		       c6 cd	   LF6A1      DEC	LINENO	;5
+   1123  f6a3		       30 06		      BMI	LF6AB	;2
+   1124  f6a5		       85 02		      STA	WSYNC	;3
+   1125  f6a7		       85 02		      STA	WSYNC	;3
+   1126  f6a9		       10 f6		      BPL	LF6A1	;2
+   1127  f6ab		       85 02	   LF6AB      STA	WSYNC	;3
+   1128  f6ad		       a5 f4		      LDA	$F4	;3
+   1129  f6af		       85 09		      STA	COLUBK	;3
+   1130  f6b1		       a0 ff		      LDY	#STKTOP	;2
+   1131  f6b3		       84 0d		      STY	PF0	;3
+   1132  f6b5		       c8		      INY		;2
+   1133  f6b6		       84 08		      STY	COLUPF	;3
+   1134  f6b8		       a2 07		      LDX	#$07	;2
+   1135  f6ba		       85 02		      STA	WSYNC	;3
+   1136  f6bc		       ca	   LF6BC      DEX		;2
+   1137  f6bd		       10 fd		      BPL	LF6BC	;2
+   1138  f6bf		       85 10		      STA	RESP0	;3
+   1139  f6c1		       a9 40		      LDA	#$40	;2
+   1140  f6c3		       85 20		      STA	HMP0	;3
+   1141  f6c5		       85 02		      STA	WSYNC	;3
+   1142  f6c7		       85 2a		      STA	HMOVE	;3
+   1143  f6c9		       a9 32		      LDA	#$32	;2
+   1144  f6cb		       85 04		      STA	NUSIZ0	;3
+   1145  f6cd		       85 05		      STA	NUSIZ1	;3
+   1146  f6cf		       86 db		      STX	$DB	;3
+   1147  f6d1		       86 d9		      STX	$D9	;3
+   1148  f6d3		       86 d7		      STX	$D7	;3
+   1149  f6d5		       86 d5		      STX	$D5	;3
+   1150  f6d7		       a5 82		      LDA	$82	;3
+   1151  f6d9		       29 f0		      AND	#$F0	;2
+   1152  f6db		       4a		      LSR		;2
+   1153  f6dc		       85 d4		      STA	$D4	;3
+   1154  f6de		       a5 82		      LDA	$82	;3
+   1155  f6e0		       29 0f		      AND	#$0F	;2
+   1156  f6e2		       0a		      ASL		;2
+   1157  f6e3		       0a		      ASL		;2
+   1158  f6e4		       0a		      ASL		;2
+   1159  f6e5		       85 d6		      STA	$D6	;3
+   1160  f6e7		       a5 96		      LDA	LIVES	;3
+   1161  f6e9		       0a		      ASL		;2
+   1162  f6ea		       0a		      ASL		;2
+   1163  f6eb		       0a		      ASL		;2
+   1164  f6ec		       85 d8		      STA	$D8	;3
+   1165  f6ee		       24 99		      BIT	$99	;3
+   1166  f6f0		       50 04		      BVC	LF6F6	;2
+   1167  f6f2		       a4 cc		      LDY	GAMEMODE	;3
+   1168  f6f4		       10 02		      BPL	LF6F8	;2
+   1169  f6f6		       a4 8d	   LF6F6      LDY	FLOORNO	;3
+   1170  f6f8		       c8	   LF6F8      INY		;2
+   1171  f6f9		       98		      TYA		;2
+   1172  f6fa		       0a		      ASL		;2
+   1173  f6fb		       0a		      ASL		;2
+   1174  f6fc		       0a		      ASL		;2
+   1175  f6fd		       85 da		      STA	$DA	;3
+   1176  f6ff		       a6 9a		      LDX	$9A	;3
+   1177  f701		       20 e2 f4 	      JSR	LF4E2	;6
+   1178  f704		       86 d1		      STX	$D1	;3
+   1179  f706		       24 9a		      BIT	$9A	;3
+   1180  f708		       10 02		      BPL	LF70C	;2
+   1181  f70a		       a9 6a		      LDA	#$6A	;2
+   1182  f70c		       85 d0	   LF70C      STA	$D0	;3
+   1183  f70e		       a5 f3		      LDA	$F3	;3
+   1184  f710		       85 06		      STA	COLUP0	;3
+   1185  f712		       85 07		      STA	COLUP1	;3
+   1186  f714		       a0 07		      LDY	#7
+   1187  f716							; Draw floor no. (bottom of the screen, above torch count & lives)
+   1188  f716		       85 02	   LF716      STA	WSYNC
+   1189  f718		       b1 da		      LDA	($DA),Y	; number sprite pointer + Y index
+   1190  f71a		       85 1b		      STA	GRP0	; draw floor number
+   1191  f71c		       a2 05		      LDX	#5
+   1192  f71e							; Draw urn piece
+   1193  f71e		       ca	   LF71E      DEX		; wait until score is drawn
+   1194  f71f		       10 fd		      BPL	LF71E
+   1195  f721		       b1 d0		      LDA	($D0),Y	; urn piece sprite pointer + Y index
+   1196  f723		       85 1b		      STA	GRP0	; draw urn piece sprite
+   1197  f725		       88		      DEY		; decrement sprite line counter
+   1198  f726		       10 ee		      BPL	LF716	; draw rest of sprites if >= 0
+   1199  f728		       c8		      INY		; Y = 0
+   1200  f729		       84 02		      STY	WSYNC	; start next line ...
+   1201  f72b		       84 1b		      STY	GRP0	; clear out sprites, we want to leave blank
+   1202  f72d		       84 1c		      STY	GRP1	;   space between the floor/urn & torches/lives
+   1203  f72f		       a2 03		      LDX	#3
+   1204  f731		       85 02		      STA	WSYNC
+   1205  f733							; Setup for torch count and lives drawing
+   1206  f733		       ca	   LF733      DEX
+   1207  f734		       ea		      NOP		; cycle counting is important here!
+   1208  f735		       10 fc		      BPL	LF733
+   1209  f737		       a5 d0		      LDA	$D0
+   1210  f739		       85 10		      STA	RESP0	; TODO: look these up, I thought we cleared
+   1211  f73b		       85 11		      STA	RESP1	;   the sprites out above
+   1212  f73d		       a9 34		      LDA	#$34	; set the sprite draw mode: double wide
+   1213  f73f		       85 04		      STA	NUSIZ0	; for player sprite 0 (first torch no digit)
+   1214  f741		       85 05		      STA	NUSIZ1	; and for player sprite 1 (second torch no digit)
+   1215  f743		       a0 07		      LDY	#7
+   1216  f745							; Draw torch count, this appears at the bottom
+   1217  f745							; left of the screen and is the first thing drawn
+   1218  f745							; LF745:
+   1219  f745				   DRAW_TORCH_CT
+   1220  f745		       85 02		      STA	WSYNC	;3 wait for sync
+   1221  f747		       b1 d4		      LDA	($D4),Y	;5 load number sprite
+   1222  f749		       85 1b		      STA	GRP0	;3 draw torch count digit 1
+   1223  f74b		       b1 d6		      LDA	($D6),Y	;5 load number sprite
+   1224  f74d		       85 1c		      STA	GRP1	;3 draw torch count digit 2
+   1225  f74f		       a2 03		      LDX	#$03	;2
+   1226  f751							; wait for floor number sprite to be drawn on the left
+   1227  f751							; side of the screen (wait for scan line to get to
+   1228  f751							; the right hand side of screen) ...
+   1229  f751		       ca	   LF751      DEX		;2
+   1230  f752		       10 fd		      BPL	LF751	;2
+   1231  f754		       a5 cd		      LDA	LINENO	;3
+   1232  f756		       e8		      INX		;2
+   1233  f757		       86 1b		      STX	GRP0	;3 draws sprite in X via GRP0
+   1234  f759		       b1 d8		      LDA	($D8),Y	;5
+   1235  f75b		       85 1c		      STA	GRP1	;3 draw eyes or lives (if in bottom)
+   1236  f75d		       88		      DEY		;2
+   1237  f75e		       10 e5		      BPL	DRAW_TORCH_CT
+   1238  f760		       c8		      INY		;2
+   1239  f761		       84 1c		      STY	GRP1	;3 draws Y reg sprite via GRP1
+   1240  f763		       a5 99		      LDA	$99	;3
+   1241  f765		       d0 3c		      BNE	LF7A3	;2
+   1242  f767		       a5 83		      LDA	UNKNOWN3	;3
+   1243  f769		       d0 08		      BNE	LF773	;2
+   1244  f76b		       a6 98		      LDX	$98	;3
+   1245  f76d		       e0 7f		      CPX	#$7F	;2
+   1246  f76f		       f0 6a		      BEQ	LF7DB	;2
+   1247  f771		       85 92		      STA	$92	;3
+   1248  f773		       a5 98	   LF773      LDA	$98	;3
+   1249  f775		       a8		      TAY		;2
+   1250  f776		       c9 7f		      CMP	#$7F	;2
+   1251  f778		       f0 10		      BEQ	LF78A	;2
+   1252  f77a		       29 0f		      AND	#$0F	;2
+   1253  f77c		       d0 0e		      BNE	LF78C	;2
+   1254  f77e		       98		      TYA		;2
+   1255  f77f		       f0 09		      BEQ	LF78A	;2
+   1256  f781		       30 07		      BMI	LF78A	;2
+   1257  f783		       a6 eb		      LDX	$EB	;3
+   1258  f785		       bd 00 f0 	      LDA	START,X	;4 Very strange, investigate more
+   1259  f788		       29 01		      AND	#$01	;2
+   1260  f78a		       85 92	   LF78A      STA	$92	;3
+   1261  f78c		       a5 92	   LF78C      LDA	$92	;3
+   1262  f78e		       d0 04		      BNE	LF794	;2
+   1263  f790		       e6 98		      INC	$98	;5
+   1264  f792		       d0 02		      BNE	LF796	;2
+   1265  f794		       c6 98	   LF794      DEC	$98	;5
+   1266  f796		       a2 08	   LF796      LDX	#$08	;2
+   1267  f798		       98		      TYA		;2
+   1268  f799		       4a		      LSR		;2
+   1269  f79a		       4a		      LSR		;2
+   1270  f79b		       4a		      LSR		;2
+   1271  f79c		       09 10		      ORA	#$10	;2
+   1272  f79e		       a8		      TAY		;2
+   1273  f79f		       49 0f		      EOR	#$0F	;2
+   1274  f7a1		       10 3a		      BPL	LF7DD	;2
+   1275  f7a3		       4a	   LF7A3      LSR		;2
+   1276  f7a4		       90 1e		      BCC	LF7C4	;2
+   1277  f7a6		       a5 8f		      LDA	$8F	;3
+   1278  f7a8		       d0 0d		      BNE	LF7B7	;2
+   1279  f7aa		       a5 eb		      LDA	$EB	;3
+   1280  f7ac		       29 70		      AND	#$70	;2
+   1281  f7ae		       4a		      LSR		;2
+   1282  f7af		       4a		      LSR		;2
+   1283  f7b0		       18		      CLC		;2
+   1284  f7b1		       69 10		      ADC	#$10	;2
+   1285  f7b3		       85 8f		      STA	$8F	;3
+   1286  f7b5		       10 24		      BPL	LF7DB	;2
+   1287  f7b7		       a5 8f	   LF7B7      LDA	$8F	;3
+   1288  f7b9		       49 ff		      EOR	#STKTOP	;2
+   1289  f7bb		       a8		      TAY		;2
+   1290  f7bc		       c6 8f		      DEC	$8F	;5
+   1291  f7be		       a2 08		      LDX	#$08	;2
+   1292  f7c0		       a9 0c		      LDA	#$0C	;2
+   1293  f7c2		       10 19		      BPL	LF7DD	;2
+   1294  f7c4		       c9 22	   LF7C4      CMP	#$22	;2
+   1295  f7c6		       d0 13		      BNE	LF7DB	;2
+   1296  f7c8		       a5 89		      LDA	CLOCK	;3
+   1297  f7ca		       4a		      LSR		;2
+   1298  f7cb		       4a		      LSR		;2
+   1299  f7cc		       4a		      LSR		;2
+   1300  f7cd		       4a		      LSR		;2
+   1301  f7ce		       29 03		      AND	#$03	;2
+   1302  f7d0		       aa		      TAX		;2
+   1303  f7d1		       bd 9e ff 	      LDA	LFF9E,X	;4
+   1304  f7d4		       a8		      TAY		;2
+   1305  f7d5		       a9 09		      LDA	#$09	;2
+   1306  f7d7		       a2 0c		      LDX	#$0C	;2
+   1307  f7d9		       10 02		      BPL	LF7DD	;2
+   1308  f7db
+   1309  f7db							; Audio volume 0
+   1310  f7db		       a9 00	   LF7DB      LDA	#0	;2
+   1311  f7dd							; Begin sound effects routine
+   1312  f7dd							; Params:
+   1313  f7dd							;   A - volume
+   1314  f7dd							;   Y - frequency
+   1315  f7dd							;   X - noise content & additional freq
+   1316  f7dd		       86 15	   LF7DD      STX	AUDC0	;3
+   1317  f7df		       84 17		      STY	AUDF0	;3
+   1318  f7e1		       85 19		      STA	AUDV0	;3
+   1319  f7e3		       a5 99		      LDA	$99	;3
+   1320  f7e5		       d0 5a		      BNE	LF841	;2
+   1321  f7e7		       a4 93		      LDY	$93	;3
+   1322  f7e9		       a5 90		      LDA	$90	;3
+   1323  f7eb		       d0 07		      BNE	LF7F4	;2
+   1324  f7ed		       85 1a		      STA	AUDV1	;3
+   1325  f7ef		       85 93		      STA	$93	;3
+   1326  f7f1		       4c 75 f8 	      JMP	LF875	;3
+   1327  f7f4		       c6 90	   LF7F4      DEC	$90	;5
+   1328  f7f6		       c0 02		      CPY	#$02	;2
+   1329  f7f8		       d0 0b		      BNE	LF805	;2
+   1330  f7fa		       a2 06		      LDX	#$06	;2
+   1331  f7fc		       a5 90		      LDA	$90	;3
+   1332  f7fe		       49 03		      EOR	#$03	;2
+   1333  f800		       a8	   LF800      TAY		;2
+   1334  f801		       a9 08		      LDA	#$08	;2
+   1335  f803		       d0 3e		      BNE	LF843	;2
+   1336  f805		       c0 03	   LF805      CPY	#$03	;2
+   1337  f807		       d0 06		      BNE	LF80F	;2
+   1338  f809		       a2 02		      LDX	#$02	;2
+   1339  f80b		       a5 90	   LF80B      LDA	$90	;3
+   1340  f80d		       10 f1		      BPL	LF800	;2
+   1341  f80f		       c0 04	   LF80F      CPY	#$04	;2
+   1342  f811		       d0 08		      BNE	LF81B	;2
+   1343  f813		       a9 06		      LDA	#$06	;2
+   1344  f815		       a2 08		      LDX	#$08	;2
+   1345  f817		       a0 0f		      LDY	#$0F	;2
+   1346  f819		       d0 28		      BNE	LF843	;2
+   1347  f81b		       c0 05	   LF81B      CPY	#$05	;2
+   1348  f81d		       d0 0a		      BNE	LF829	;2
+   1349  f81f		       a5 90		      LDA	$90	;3
+   1350  f821		       49 03		      EOR	#$03	;2
+   1351  f823		       a0 08	   LF823      LDY	#$08	;2
+   1352  f825		       a2 06		      LDX	#$06	;2
+   1353  f827		       d0 1a		      BNE	LF843	;2
+   1354  f829		       c0 06	   LF829      CPY	#$06	;2
+   1355  f82b		       d0 04		      BNE	LF831	;2
+   1356  f82d		       a5 90		      LDA	$90	;3
+   1357  f82f		       10 f2		      BPL	LF823	;2
+   1358  f831		       c0 07	   LF831      CPY	#$07	;2
+   1359  f833		       d0 04		      BNE	LF839	;2
+   1360  f835		       a2 04		      LDX	#$04	;2
+   1361  f837		       d0 d2		      BNE	LF80B	;2
+   1362  f839		       c0 08	   LF839      CPY	#$08	;2
+   1363  f83b		       d0 0d		      BNE	LF84A	;2
+   1364  f83d		       a2 08		      LDX	#$08	;2
+   1365  f83f		       d0 ca		      BNE	LF80B	;2
+   1366  f841		       a0 00	   LF841      LDY	#0	;2
+   1367  f843		       84 1a	   LF843      STY	AUDV1	;3
+   1368  f845		       85 18		      STA	AUDF1	;3
+   1369  f847		       86 16		      STX	AUDC1	;3
+   1370  f849		       60		      RTS		;6
+   1371  f84a
+   1372  f84a		       a5 90	   LF84A      LDA	$90	;3
+   1373  f84c		       4a		      LSR		;2
+   1374  f84d		       4a		      LSR		;2
+   1375  f84e		       4a		      LSR		;2
+   1376  f84f		       4a		      LSR		;2
+   1377  f850		       c0 09		      CPY	#$09	;2
+   1378  f852		       f0 06		      BEQ	LF85A	;2
+   1379  f854		       c0 0a		      CPY	#$0A	;2
+   1380  f856		       d0 0c		      BNE	LF864	;2
+   1381  f858		       49 03		      EOR	#$03	;2
+   1382  f85a		       aa	   LF85A      TAX		;2
+   1383  f85b		       bd a2 ff 	      LDA	LFFA2,X	;4
+   1384  f85e		       a2 06		      LDX	#$06	;2
+   1385  f860		       a0 0a		      LDY	#$0A	;2
+   1386  f862		       d0 df		      BNE	LF843	;2
+   1387  f864		       c0 0b	   LF864      CPY	#$0B	;2
+   1388  f866		       d0 0d		      BNE	LF875	;2
+   1389  f868		       a5 90		      LDA	$90	;3
+   1390  f86a		       a8		      TAY		;2
+   1391  f86b		       29 04		      AND	#$04	;2
+   1392  f86d		       f0 d2		      BEQ	LF841	;2
+   1393  f86f		       a2 06		      LDX	#$06	;2
+   1394  f871		       a9 01		      LDA	#$01	;2
+   1395  f873		       d0 ce		      BNE	LF843	;2
+   1396  f875		       ad 80 02    LF875      LDA	SWCHA	;4
+   1397  f878		       49 ff		      EOR	#STKTOP	;2
+   1398  f87a		       f0 c5		      BEQ	LF841	;2
+   1399  f87c		       a5 89		      LDA	CLOCK	;3
+   1400  f87e		       29 07		      AND	#$07	;2
+   1401  f880		       c9 03		      CMP	#$03	;2
+   1402  f882		       b0 bd		      BCS	LF841	;2
+   1403  f884		       a0 0f		      LDY	#$0F	;2
+   1404  f886		       a2 0b		      LDX	#$0B	;2
+   1405  f888		       a9 18		      LDA	#$18	;2
+   1406  f88a		       d0 b7		      BNE	LF843	;2
+   1407  f88c		       e4 93	   LF88C      CPX	$93	;3
+   1408  f88e		       f0 0f		      BEQ	LF89F	;2
+   1409  f890		       e0 03		      CPX	#$03	;2
+   1410  f892		       d0 04		      BNE	LF898	;2
+   1411  f894		       a5 93		      LDA	$93	;3
+   1412  f896		       d0 07		      BNE	LF89F	;2
+   1413  f898		       86 93	   LF898      STX	$93	;3
+   1414  f89a		       bd a0 f8 	      LDA	LF8A0,X	;4
+   1415  f89d		       85 90		      STA	$90	;3
+   1416  f89f		       60	   LF89F      RTS		;6
+   1417  f8a0
+   1418  f8a0		       ff ff 15 15*LF8A0      .byte.b	$FF,$FF,$15,$15,$01,$04,$04,$0A,$15,$3F,$3F,$1F
+   1419  f8ac		       a5 99	   LF8AC      LDA	$99	;3
+   1420  f8ae		       29 fd		      AND	#$FD	;2
+   1421  f8b0		       85 99		      STA	$99	;3
+   1422  f8b2		       6a		      ROR		;2
+   1423  f8b3		       90 37		      BCC	LF8EC	;2
+   1424  f8b5		       c6 80		      DEC	$80	;5
+   1425  f8b7		       d0 33		      BNE	LF8EC	;2
+   1426  f8b9		       a9 00		      LDA	#0	;2
+   1427  f8bb		       85 99		      STA	$99	;3
+   1428  f8bd		       85 93		      STA	$93	;3
+   1429  f8bf		       a5 96		      LDA	LIVES	;3
+   1430  f8c1		       d0 03		      BNE	LF8C6	;2
+   1431  f8c3		       20 41 f1 	      JSR	LF141	;6
+   1432  f8c6		       20 e7 f0    LF8C6      JSR	LF0E7	;6
+   1433  f8c9		       85 2c		      STA	CXCLR	;3
+   1434  f8cb		       a5 ca		      LDA	$CA	;3
+   1435  f8cd		       c9 01		      CMP	#$01	;2
+   1436  f8cf		       d0 1a		      BNE	LF8EB	;2
+   1437  f8d1		       a4 cc		      LDY	GAMEMODE	;3
+   1438  f8d3		       c0 06		      CPY	#$06	;2
+   1439  f8d5		       90 14		      BCC	LF8EB	;2
+   1440  f8d7		       a6 9a		      LDX	$9A	;3
+   1441  f8d9		       30 10		      BMI	LF8EB	;2
+   1442  f8db		       a5 a6		      LDA	$A6	;3
+   1443  f8dd		       95 a0		      STA	$A0,X	;4
+   1444  f8df		       a5 b1		      LDA	$B1	;3
+   1445  f8e1		       95 ab		      STA	$AB,X	;4
+   1446  f8e3		       a5 bc		      LDA	$BC	;3
+   1447  f8e5		       95 b6		      STA	$B6,X	;4
+   1448  f8e7		       a9 ff		      LDA	#STKTOP	;2
+   1449  f8e9		       85 9a		      STA	$9A	;3
+   1450  f8eb		       60	   LF8EB      RTS		;6
+   1451  f8ec
+   1452  f8ec		       a5 89	   LF8EC      LDA	CLOCK	;3
+   1453  f8ee		       29 07		      AND	#$07	;2
+   1454  f8f0		       85 cd		      STA	LINENO	;3
+   1455  f8f2		       a8		      TAY		;2
+   1456  f8f3		       a9 88		      LDA	#$88	;2
+   1457  f8f5		       39 00 fe 	      AND	MASK0,Y	;4
+   1458  f8f8		       85 da		      STA	$DA	;3
+   1459  f8fa		       a9 00		      LDA	#0	;2
+   1460  f8fc		       85 83		      STA	UNKNOWN3	;3
+   1461  f8fe		       a6 ea		      LDX	$EA	;3
+   1462  f900		       b5 a5	   LF900      LDA	$A5,X	;4
+   1463  f902		       c5 8d		      CMP	FLOORNO	;3
+   1464  f904		       d0 3f		      BNE	LF945	;2
+   1465  f906		       b5 c5		      LDA	$C5,X	;4
+   1466  f908		       c5 9c		      CMP	$9C	;3
+   1467  f90a		       f0 04		      BEQ	LF910	;2
+   1468  f90c		       c5 97		      CMP	$97	;3
+   1469  f90e		       d0 35		      BNE	LF945	;2
+   1470  f910		       e6 83	   LF910      INC	UNKNOWN3	;5
+   1471  f912		       a5 80		      LDA	$80	;3
+   1472  f914		       d0 36		      BNE	LF94C	;2
+   1473  f916		       8a		      TXA		;2
+   1474  f917		       d0 06		      BNE	LF91F	;2
+   1475  f919		       a5 cc		      LDA	GAMEMODE	;3
+   1476  f91b		       c9 07		      CMP	#$07	;2
+   1477  f91d		       b0 06		      BCS	LF925	;2
+   1478  f91f		       a5 9a	   LF91F      LDA	$9A	;3
+   1479  f921		       c9 01		      CMP	#$01	;2
+   1480  f923		       f0 27		      BEQ	LF94C	;2
+   1481  f925		       20 6f fa    LF925      JSR	LFA6F	;6
+   1482  f928		       f0 76		      BEQ	LF9A0	;2
+   1483  f92a		       a5 aa		      LDA	POS_X	;3
+   1484  f92c		       38		      SEC		;2
+   1485  f92d		       fd ec fd 	      SBC	LFDEC,X	;4
+   1486  f930		       b0 02		      BCS	LF934	;2
+   1487  f932		       a5 aa		      LDA	POS_X	;3
+   1488  f934		       85 d0	   LF934      STA	$D0	;3
+   1489  f936		       a5 b5		      LDA	POS_Y	;3
+   1490  f938		       38		      SEC		;2
+   1491  f939		       fd f1 fd 	      SBC	LFDF1,X	;4
+   1492  f93c		       b0 02		      BCS	LF940	;2
+   1493  f93e		       a5 b5		      LDA	POS_Y	;3
+   1494  f940		       85 d1	   LF940      STA	$D1	;3
+   1495  f942		       4c 83 f9 	      JMP	LF983	;3
+   1496  f945		       20 68 fa    LF945      JSR	LFA68	;6
+   1497  f948		       f0 56		      BEQ	LF9A0	;2
+   1498  f94a		       d0 04		      BNE	LF950	;2
+   1499  f94c		       a5 da	   LF94C      LDA	$DA	;3
+   1500  f94e		       f0 50		      BEQ	LF9A0	;2
+   1501  f950		       b5 c0	   LF950      LDA	$C0,X	;4
+   1502  f952		       29 3f		      AND	#$3F	;2
+   1503  f954		       a8		      TAY		;2
+   1504  f955		       29 0f		      AND	#$0F	;2
+   1505  f957		       85 d0		      STA	$D0	;3
+   1506  f959		       98		      TYA		;2
+   1507  f95a		       4a		      LSR		;2
+   1508  f95b		       4a		      LSR		;2
+   1509  f95c		       4a		      LSR		;2
+   1510  f95d		       4a		      LSR		;2
+   1511  f95e		       a8		      TAY		;2
+   1512  f95f		       b9 a6 ff 	      LDA	LFFA6,Y	;4
+   1513  f962		       18		      CLC		;2
+   1514  f963		       65 d0		      ADC	$D0	;3
+   1515  f965		       a8		      TAY		;2
+   1516  f966		       b9 aa ff 	      LDA	LFFAA,Y	;4
+   1517  f969		       85 d0		      STA	$D0	;3
+   1518  f96b		       b9 bd ff 	      LDA	LFFBD,Y	;4
+   1519  f96e		       85 d1		      STA	$D1	;3
+   1520  f970		       d5 bb		      CMP	$BB,X	;4
+   1521  f972		       d0 0f		      BNE	LF983	;2
+   1522  f974		       b5 b0		      LDA	$B0,X	;4
+   1523  f976		       c5 d0		      CMP	$D0	;3
+   1524  f978		       d0 09		      BNE	LF983	;2
+   1525  f97a		       a5 95		      LDA	$95	;3
+   1526  f97c		       1d 00 fe 	      ORA	MASK0,X	;4
+   1527  f97f		       85 95		      STA	$95	;3
+   1528  f981		       d0 1d		      BNE	LF9A0	;2
+   1529  f983		       b5 b0	   LF983      LDA	$B0,X	;4
+   1530  f985		       c5 d0		      CMP	$D0	;3
+   1531  f987		       90 06		      BCC	LF98F	;2
+   1532  f989		       f0 06		      BEQ	LF991	;2
+   1533  f98b		       d6 b0		      DEC	$B0,X	;6
+   1534  f98d		       d0 02		      BNE	LF991	;2
+   1535  f98f		       f6 b0	   LF98F      INC	$B0,X	;6
+   1536  f991		       b5 bb	   LF991      LDA	$BB,X	;4
+   1537  f993		       c5 d1		      CMP	$D1	;3
+   1538  f995		       90 07		      BCC	LF99E	;2
+   1539  f997		       f0 07		      BEQ	LF9A0	;2
+   1540  f999		       d6 bb		      DEC	$BB,X	;6
+   1541  f99b		       4c a0 f9 	      JMP	LF9A0	;3
+   1542  f99e		       f6 bb	   LF99E      INC	$BB,X	;6
+   1543  f9a0		       ca	   LF9A0      DEX		;2
+   1544  f9a1		       30 03		      BMI	LF9A6	;2
+   1545  f9a3		       4c 00 f9 	      JMP	LF900	;3
+   1546  f9a6		       a2 00	   LF9A6      LDX	#0	;2
+   1547  f9a8		       a5 95		      LDA	$95	;3
+   1548  f9aa		       6a	   LF9AA      ROR		;2
+   1549  f9ab		       b0 08		      BCS	LF9B5	;2
+   1550  f9ad		       e8		      INX		;2
+   1551  f9ae		       e4 ea		      CPX	$EA	;3
+   1552  f9b0		       f0 f8		      BEQ	LF9AA	;2
+   1553  f9b2		       90 f6		      BCC	LF9AA	;2
+   1554  f9b4		       60		      RTS		;6
+   1555  f9b5
+   1556  f9b5		       a5 95	   LF9B5      LDA	$95	;3
+   1557  f9b7		       5d 00 fe 	      EOR	MASK0,X	;4
+   1558  f9ba		       85 95		      STA	$95	;3
+   1559  f9bc		       b5 c0		      LDA	$C0,X	;4
+   1560  f9be		       a8		      TAY		;2
+   1561  f9bf		       29 30		      AND	#$30	;2
+   1562  f9c1		       f0 30		      BEQ	LF9F3	;2
+   1563  f9c3		       c9 10		      CMP	#$10	;2
+   1564  f9c5		       d0 14		      BNE	LF9DB	;2
+   1565  f9c7		       98		      TYA		;2
+   1566  f9c8		       29 c0		      AND	#$C0	;2
+   1567  f9ca		       85 d0		      STA	$D0	;3
+   1568  f9cc		       18		      CLC		;2
+   1569  f9cd		       2a		      ROL		;2 rotate 1 bit left
+   1570  f9ce		       2a		      ROL		;2
+   1571  f9cf		       2a		      ROL		;2
+   1572  f9d0		       a8		      TAY		;2
+   1573  f9d1		       b9 d0 ff 	      LDA	LFFD0,Y	;4
+   1574  f9d4		       18		      CLC		;2
+   1575  f9d5		       75 c5		      ADC	$C5,X	;4
+   1576  f9d7		       95 c5		      STA	$C5,X	;4
+   1577  f9d9		       10 11		      BPL	LF9EC	;2
+   1578  f9db		       c9 30	   LF9DB      CMP	#$30	;2
+   1579  f9dd		       f0 04		      BEQ	LF9E3	;2
+   1580  f9df		       d6 a5		      DEC	$A5,X	;6
+   1581  f9e1		       10 02		      BPL	LF9E5	;2
+   1582  f9e3		       f6 a5	   LF9E3      INC	$A5,X	;6
+   1583  f9e5		       98	   LF9E5      TYA		;2
+   1584  f9e6		       29 c0		      AND	#$C0	;2
+   1585  f9e8		       49 40		      EOR	#$40	;2
+   1586  f9ea		       85 d0		      STA	$D0	;3
+   1587  f9ec		       b5 c5	   LF9EC      LDA	$C5,X	;4
+   1588  f9ee		       05 d0		      ORA	$D0	;3
+   1589  f9f0		       95 c0		      STA	$C0,X	;4
+   1590  f9f2		       60		      RTS		;6
+   1591  f9f3
+   1592  f9f3		       98	   LF9F3      TYA		;2
+   1593  f9f4		       2a		      ROL		;2
+   1594  f9f5		       2a		      ROL		;2
+   1595  f9f6		       2a		      ROL		;2
+   1596  f9f7		       29 03		      AND	#$03	;2
+   1597  f9f9		       49 01		      EOR	#$01	;2
+   1598  f9fb		       85 d4		      STA	$D4	;3
+   1599  f9fd		       a5 eb		      LDA	$EB	;3
+   1600  f9ff		       29 03		      AND	#$03	;2
+   1601  fa01		       85 d3		      STA	$D3	;3
+   1602  fa03		       85 d2		      STA	$D2	;3
+   1603  fa05		       10 0c		      BPL	LFA13	;2
+   1604  fa07		       e6 d2	   LFA07      INC	$D2	;5
+   1605  fa09		       a5 d2		      LDA	$D2	;3
+   1606  fa0b		       29 03		      AND	#$03	;2
+   1607  fa0d		       85 d2		      STA	$D2	;3
+   1608  fa0f		       c5 d3		      CMP	$D3	;3
+   1609  fa11		       f0 0a		      BEQ	LFA1D	;2
+   1610  fa13		       c5 d4	   LFA13      CMP	$D4	;3
+   1611  fa15		       f0 f0		      BEQ	LFA07	;2
+   1612  fa17		       20 1f fa 	      JSR	LFA1F	;6
+   1613  fa1a		       f0 eb		      BEQ	LFA07	;2
+   1614  fa1c		       60		      RTS		;6
+   1615  fa1d
+   1616  fa1d		       a5 d4	   LFA1D      LDA	$D4	;3
+   1617  fa1f		       85 d6	   LFA1F      STA	$D6	;3
+   1618  fa21		       b5 a5		      LDA	$A5,X	;4
+   1619  fa23		       85 d7		      STA	$D7	;3
+   1620  fa25		       b5 c5		      LDA	$C5,X	;4
+   1621  fa27		       85 d0		      STA	$D0	;3
+   1622  fa29		       20 ae fd 	      JSR	LFDAE	;6
+   1623  fa2c		       30 13		      BMI	LFA41	;2
+   1624  fa2e		       f0 09		      BEQ	LFA39	;2
+   1625  fa30		       a5 cc		      LDA	GAMEMODE	;3
+   1626  fa32		       c9 08		      CMP	#$08	;2
+   1627  fa34		       f0 03		      BEQ	LFA39	;2
+   1628  fa36		       8a		      TXA		;2
+   1629  fa37		       d0 2c		      BNE	RET1	;2
+   1630  fa39		       a5 d8	   LFA39      LDA	$D8	;3
+   1631  fa3b		       85 d0		      STA	$D0	;3
+   1632  fa3d		       a9 01		      LDA	#$01	;2
+   1633  fa3f		       d0 15		      BNE	LFA56	;2
+   1634  fa41		       c9 ff	   LFA41      CMP	#STKTOP	;2
+   1635  fa43		       f0 20		      BEQ	RET1	;2
+   1636  fa45		       b4 a5		      LDY	$A5,X	;4
+   1637  fa47		       b5 c5		      LDA	$C5,X	;4
+   1638  fa49		       20 4c fd 	      JSR	LFD4C	;6
+   1639  fa4c		       b0 17		      BCS	RET1	;2
+   1640  fa4e		       d0 04		      BNE	LFA54	;2
+   1641  fa50		       a9 02		      LDA	#$02	;2
+   1642  fa52		       d0 02		      BNE	LFA56	;2
+   1643  fa54		       a9 03	   LFA54      LDA	#$03	;2
+   1644  fa56		       06 d6	   LFA56      ASL	$D6	;5
+   1645  fa58		       06 d6		      ASL	$D6	;5
+   1646  fa5a		       05 d6		      ORA	$D6	;3
+   1647  fa5c		       0a		      ASL		;2
+   1648  fa5d		       0a		      ASL		;2
+   1649  fa5e		       0a		      ASL		;2
+   1650  fa5f		       0a		      ASL		;2
+   1651  fa60		       05 d0		      ORA	$D0	;3
+   1652  fa62		       95 c0		      STA	$C0,X	;4
+   1653  fa64		       60		      RTS		;6
+   1654  fa65
+   1655  fa65							; Exit subroutine, sets return val to zero
+   1656  fa65							;LFA65:
+   1657  fa65		       a9 00	   RET1       LDA	#0	;2
+   1658  fa67		       60		      RTS		;6
+   1659  fa68
+   1660  fa68		       a5 94	   LFA68      LDA	$94	;3
+   1661  fa6a		       3d 00 fe 	      AND	MASK0,X	;4
+   1662  fa6d		       f0 14		      BEQ	LFA83	;2
+   1663  fa6f		       a5 cc	   LFA6F      LDA	GAMEMODE	;3
+   1664  fa71		       c9 07		      CMP	#$07	;2
+   1665  fa73		       90 05		      BCC	LFA7A	;2
+   1666  fa75		       bd 8b fa 	      LDA	LFA8B,X	;4
+   1667  fa78		       d0 03		      BNE	LFA7D	;2
+   1668  fa7a		       bd 86 fa    LFA7A      LDA	LFA86,X	;4
+   1669  fa7d		       a4 cd	   LFA7D      LDY	LINENO	;3
+   1670  fa7f		       39 00 fe 	      AND	MASK0,Y	;4
+   1671  fa82		       60		      RTS		;6
+   1672  fa83
+   1673  fa83		       a5 da	   LFA83      LDA	$DA	;3
+   1674  fa85		       60		      RTS		;6
+   1675  fa86
+   1676  fa86		       aa 91 88 88*LFA86      .byte.b	$AA,$91,$88,$88,$88
+   1677  fa8b		       aa aa 91 91*LFA8B      .byte.b	$AA,$AA,$91,$91,$91
+   1678  fa90
+   1679  fa90							; collision detection subroutine
+   1680  fa90							;LFA90:
+   1681  fa90				   COLLIDE0
+   1682  fa90		       a5 80		      LDA	$80	;3
+   1683  fa92		       d0 d1		      BNE	RET1	;2
+   1684  fa94		       24 37		      BIT	CXPPMM	;3 collision detect with missile
+   1685  fa96		       10 cd		      BPL	RET1	;2 jump if no collision (neg bit not set)
+   1686  fa98		       a5 81		      LDA	$81	;3
+   1687  fa9a		       d0 c9		      BNE	RET1	;2
+   1688  fa9c		       24 8a		      BIT	$8A	;3
+   1689  fa9e		       50 03		      BVC	LFAA3	;2
+   1690  faa0		       10 0a		      BPL	LFAAC	;2
+   1691  faa2		       60		      RTS		;6
+   1692  faa3
+   1693  faa3		       a5 85	   LFAA3      LDA	$85	;3
+   1694  faa5		       c5 ea		      CMP	$EA	;3
+   1695  faa7		       f0 63		      BEQ	LFB0C	;2
+   1696  faa9		       90 61		      BCC	LFB0C	;2
+   1697  faab		       60		      RTS		;6
+   1698  faac
+   1699  faac		       a2 06	   LFAAC      LDX	#$06	;2
+   1700  faae		       20 8c f8 	      JSR	LF88C	;6
+   1701  fab1		       a5 9a		      LDA	$9A	;3
+   1702  fab3		       30 49		      BMI	LFAFE	;2
+   1703  fab5		       c5 86		      CMP	$86	;3
+   1704  fab7		       f0 45		      BEQ	LFAFE	;2
+   1705  fab9		       c9 02		      CMP	#$02	;2
+   1706  fabb		       90 41		      BCC	LFAFE	;2
+   1707  fabd		       a5 86		      LDA	$86	;3
+   1708  fabf		       c9 02		      CMP	#$02	;2
+   1709  fac1		       90 3b		      BCC	LFAFE	;2
+   1710  fac3		       18		      CLC		;2
+   1711  fac4		       65 9a		      ADC	$9A	;3
+   1712  fac6		       a8		      TAY		;2
+   1713  fac7		       a2 07		      LDX	#$07	;2
+   1714  fac9		       20 8c f8 	      JSR	LF88C	;6
+   1715  facc		       a5 9e		      LDA	$9E	;3
+   1716  face		       05 9f		      ORA	$9F	;3
+   1717  fad0		       10 13		      BPL	LFAE5	;2
+   1718  fad2		       a2 0b		      LDX	#$0B	;2
+   1719  fad4		       20 8c f8 	      JSR	LF88C	;6
+   1720  fad7		       a9 08		      LDA	#$08	;2
+   1721  fad9		       85 9d		      STA	$9D	;3
+   1722  fadb		       a9 ff		      LDA	#STKTOP	;2
+   1723  fadd		       85 9e		      STA	$9E	;3
+   1724  fadf		       85 9f		      STA	$9F	;3
+   1725  fae1		       a9 02		      LDA	#$02	;2
+   1726  fae3		       d0 1b		      BNE	LFB00	;2
+   1727  fae5		       a2 02	   LFAE5      LDX	#$02	;2
+   1728  fae7		       c0 05		      CPY	#$05	;2
+   1729  fae9		       d0 01		      BNE	LFAEC	;2
+   1730  faeb		       ca		      DEX		;2
+   1731  faec		       a9 ff	   LFAEC      LDA	#STKTOP	;2
+   1732  faee		       95 9d		      STA	$9D,X	;4
+   1733  faf0		       a2 00		      LDX	#0	;2
+   1734  faf2		       c0 07		      CPY	#$07	;2
+   1735  faf4		       d0 01		      BNE	LFAF7	;2
+   1736  faf6		       e8		      INX		;2
+   1737  faf7		       94 9d	   LFAF7      STY	$9D,X	;4
+   1738  faf9		       e8		      INX		;2
+   1739  fafa		       e8		      INX		;2
+   1740  fafb		       8a		      TXA		;2
+   1741  fafc		       d0 02		      BNE	LFB00	;2
+   1742  fafe		       a5 86	   LFAFE      LDA	$86	;3
+   1743  fb00		       48	   LFB00      PHA		;3
+   1744  fb01		       24 9a		      BIT	$9A	;3
+   1745  fb03		       30 03		      BMI	LFB08	;2
+   1746  fb05		       20 e2 fb 	      JSR	LFBE2	;6
+   1747  fb08		       68	   LFB08      PLA		;4
+   1748  fb09		       85 9a		      STA	$9A	;3
+   1749  fb0b		       60	   LFB0B      RTS		;6
+   1750  fb0c
+   1751  fb0c		       a5 cc	   LFB0C      LDA	GAMEMODE	;3
+   1752  fb0e		       c9 07		      CMP	#$07	;2
+   1753  fb10		       90 04		      BCC	LFB16	;2
+   1754  fb12		       a5 85		      LDA	$85	;3
+   1755  fb14		       f0 06		      BEQ	LFB1C	;2
+   1756  fb16		       a5 9a	   LFB16      LDA	$9A	;3
+   1757  fb18		       c9 01		      CMP	#$01	;2
+   1758  fb1a		       f0 ef		      BEQ	LFB0B	;2
+   1759  fb1c		       a2 01	   LFB1C      LDX	#$01	;2
+   1760  fb1e		       86 99		      STX	$99	;3
+   1761  fb20		       a2 ff		      LDX	#STKTOP	;2
+   1762  fb22		       86 80		      STX	$80	;3
+   1763  fb24		       c6 96		      DEC	LIVES	;5
+   1764  fb26		       a5 85		      LDA	$85	;3
+   1765  fb28		       85 ca		      STA	$CA	;3
+   1766  fb2a		       60		      RTS		;6
+   1767  fb2b
+   1768  fb2b		       a5 cc	   LFB2B      LDA	GAMEMODE	;3
+   1769  fb2d		       c9 05		      CMP	#$05	;2
+   1770  fb2f		       90 61		      BCC	INPUT0	;2
+   1771  fb31		       a5 9b		      LDA	$9B	;3
+   1772  fb33		       29 07		      AND	#$07	;2
+   1773  fb35		       0a		      ASL		;2
+   1774  fb36		       0a		      ASL		;2
+   1775  fb37		       85 d0		      STA	$D0	;3
+   1776  fb39		       0a		      ASL		;2
+   1777  fb3a		       0a		      ASL		;2
+   1778  fb3b		       0a		      ASL		;2
+   1779  fb3c		       0a		      ASL		;2
+   1780  fb3d		       05 d0		      ORA	$D0	;3
+   1781  fb3f		       29 d0		      AND	#$D0	;2
+   1782  fb41		       09 20		      ORA	#$20	;2
+   1783  fb43		       05 9c		      ORA	$9C	;3
+   1784  fb45		       85 d0		      STA	$D0	;3
+   1785  fb47		       a6 ea	   LFB47      LDX	$EA	;3
+   1786  fb49		       a9 00	   LFB49      LDA	#0	;2
+   1787  fb4b		       85 94		      STA	$94	;3
+   1788  fb4d		       b5 a5	   LFB4D      LDA	$A5,X	;4
+   1789  fb4f		       c5 8d		      CMP	FLOORNO	;3
+   1790  fb51		       d0 11		      BNE	LFB64	;2
+   1791  fb53		       b5 c5		      LDA	$C5,X	;4
+   1792  fb55		       c5 9c		      CMP	$9C	;3
+   1793  fb57		       d0 0b		      BNE	LFB64	;2
+   1794  fb59		       a5 d0		      LDA	$D0	;3
+   1795  fb5b		       95 c0		      STA	$C0,X	;4
+   1796  fb5d		       a5 94		      LDA	$94	;3
+   1797  fb5f		       1d 00 fe 	      ORA	MASK0,X	;4
+   1798  fb62		       85 94		      STA	$94	;3
+   1799  fb64		       ca	   LFB64      DEX		;2
+   1800  fb65		       10 e6		      BPL	LFB4D	;2
+   1801  fb67		       60		      RTS		;6
+   1802  fb68
+   1803  fb68							; This is some kind of an input processing subroutine
+   1804  fb68		       a5 9b	   LFB68      LDA	$9B	;3
+   1805  fb6a		       29 0f		      AND	#$0F	;2
+   1806  fb6c		       c9 0f		      CMP	#$0F	;2
+   1807  fb6e		       f0 22		      BEQ	INPUT0	;2
+   1808  fb70		       24 9b		      BIT	$9B	;3
+   1809  fb72		       10 1c		      BPL	LFB90	;2
+   1810  fb74		       70 1c		      BVS	INPUT0	;2
+   1811  fb76		       20 2b fb 	      JSR	LFB2B	;6
+   1812  fb79		       a2 09		      LDX	#$09	;2
+   1813  fb7b		       a5 9b		      LDA	$9B	;3
+   1814  fb7d		       29 04		      AND	#$04	;2
+   1815  fb7f		       f0 04		      BEQ	LFB85	;2
+   1816  fb81		       e6 8d		      INC	FLOORNO	;5
+   1817  fb83		       d0 03		      BNE	LFB88	;2
+   1818  fb85		       c6 8d	   LFB85      DEC	FLOORNO	;5
+   1819  fb87		       e8		      INX		;2
+   1820  fb88		       20 8c f8    LFB88      JSR	LF88C	;6
+   1821  fb8b		       20 0a fd 	      JSR	LFD0A	;6
+   1822  fb8e		       09 40		      ORA	#$40	;2
+   1823  fb90		       85 9b	   LFB90      STA	$9B	;3
+   1824  fb92
+   1825  fb92							; Torch input control (contains only reference to INPT4 reg)
+   1826  fb92							;LFB92:
+   1827  fb92				   INPUT0
+   1828  fb92		       ad 80 02 	      LDA	SWCHA	;4 joystick movement state to reg A
+   1829  fb95							;  7Fh = right, BFh = left, EFh = up, DFh = down
+   1830  fb95							;  Bottom 4 bits 1, assuming no second control mvmts
+   1831  fb95		       29 f0		      AND	#$F0	;2 zeros out joystick 4 bits (lower 4)
+   1832  fb97		       49 f0		      EOR	#$F0	;2 since the register encodes "no movement" as ones
+   1833  fb99							;  we invert that encoding here to 1 means move
+   1834  fb99							;  in a direction
+   1835  fb99		       85 8e		      STA	MVMT	;3 RAM MVMT ($8E) holds movement bits, where 1=pressed
+   1836  fb9b							;  this is the opposite of the usual SWCHA format
+   1837  fb9b		       a5 83		      LDA	UNKNOWN3	;3
+   1838  fb9d		       d0 35		      BNE	LFBD4	;2 ?? jump if we're close to an enemy?
+   1839  fb9f		       a5 3c		      LDA	INPT4	;3 A=joystick button state ($bc, 10111100 if pressed)
+   1840  fba1		       2a		      ROL		;2 rotate left w/ wrap around ($79, 01111001)
+   1841  fba2		       66 e6		      ROR	$E6	;5 rotate right, RAM E6 (previous button press state?)
+   1842  fba4		       a5 e6		      LDA	$E6	;3 load RAM E6 into A
+   1843  fba6		       c9 7f		      CMP	#$7F	;2 compare result with 7F (0111 1111)
+   1844  fba8		       d0 2a		      BNE	LFBD4	;2 jump if not equal
+   1845  fbaa		       24 8a		      BIT	$8A	;3
+   1846  fbac		       70 14		      BVS	LFBC2	;2
+   1847  fbae		       a9 14		      LDA	#$14	;2
+   1848  fbb0		       85 df		      STA	$DF	;3
+   1849  fbb2		       f8		      SED		;2
+   1850  fbb3		       a5 82		      LDA	$82	;3
+   1851  fbb5		       18		      CLC		;2
+   1852  fbb6		       69 01		      ADC	#$01	;2
+   1853  fbb8		       85 82		      STA	$82	;3
+   1854  fbba		       d8		      CLD		;2
+   1855  fbbb		       a5 8a		      LDA	$8A	;3
+   1856  fbbd		       09 40		      ORA	#$40	;2
+   1857  fbbf		       85 8a		      STA	$8A	;3
+   1858  fbc1		       60		      RTS		;6
+   1859  fbc2
+   1860  fbc2		       24 9a	   LFBC2      BIT	$9A	;3
+   1861  fbc4		       30 0e		      BMI	LFBD4	;2
+   1862  fbc6		       a2 05		      LDX	#$05	;2
+   1863  fbc8		       20 8c f8 	      JSR	LF88C	;6
+   1864  fbcb		       20 e2 fb 	      JSR	LFBE2	;6
+   1865  fbce		       a9 ff		      LDA	#STKTOP	;2
+   1866  fbd0		       85 9a		      STA	$9A	;3
+   1867  fbd2		       d0 36		      BNE	RET0	;2
+   1868  fbd4
+   1869  fbd4		       a5 81	   LFBD4      LDA	$81	;3 move RAM 81 into A
+   1870  fbd6		       f0 32		      BEQ	RET0	;2 if A == 0, return
+   1871  fbd8		       24 32		      BIT	CXP0FB	;3
+   1872  fbda		       30 1f		      BMI	LFBFB	;2
+   1873  fbdc		       a9 00		      LDA	#0	;2
+   1874  fbde		       85 81		      STA	$81	;3
+   1875  fbe0		       f0 28		      BEQ	RET0	;2
+   1876  fbe2		       a9 05	   LFBE2      LDA	#$05	;2
+   1877  fbe4		       85 81		      STA	$81	;3
+   1878  fbe6		       a5 9a		      LDA	$9A	;3
+   1879  fbe8		       85 e9		      STA	$E9	;3
+   1880  fbea		       a5 e7		      LDA	$E7	;3
+   1881  fbec		       a8		      TAY		;2
+   1882  fbed		       05 e8		      ORA	$E8	;3
+   1883  fbef		       f0 0a		      BEQ	LFBFB	;2
+   1884  fbf1		       c8		      INY		;2
+   1885  fbf2		       c8		      INY		;2
+   1886  fbf3		       a6 e8		      LDX	$E8	;3
+   1887  fbf5		       e8		      INX		;2
+   1888  fbf6		       20 0b fc 	      JSR	LFC0B	;6
+   1889  fbf9		       90 0f		      BCC	RET0	;2
+   1890  fbfb		       c6 81	   LFBFB      DEC	$81	;5
+   1891  fbfd		       f0 0b		      BEQ	RET0	;2
+   1892  fbff		       a6 81		      LDX	$81	;3
+   1893  fc01		       ca		      DEX		;2
+   1894  fc02		       a4 81		      LDY	$81	;3
+   1895  fc04		       88		      DEY		;2
+   1896  fc05		       20 0b fc 	      JSR	LFC0B	;6
+   1897  fc08		       b0 f1		      BCS	LFBFB	;2
+   1898  fc0a							;LFC0A:
+   1899  fc0a		       60	   RET0       RTS		;6
+   1900  fc0b
+   1901  fc0b		       bd 03 fd    LFC0B      LDA	LFD03,X	;4
+   1902  fc0e		       a6 b5		      LDX	POS_Y	;3
+   1903  fc10		       e0 f4		      CPX	#$F4	;2
+   1904  fc12		       90 04		      BCC	LFC18	;2
+   1905  fc14		       c9 0a		      CMP	#$0A	;2
+   1906  fc16		       f0 22		      BEQ	LFC3A	;2
+   1907  fc18		       18	   LFC18      CLC		;2
+   1908  fc19		       65 b5		      ADC	POS_Y	;3
+   1909  fc1b		       c9 f4		      CMP	#$F4	;2
+   1910  fc1d		       b0 1b		      BCS	LFC3A	;2
+   1911  fc1f		       a6 e9		      LDX	$E9	;3
+   1912  fc21		       95 b6		      STA	$B6,X	;4
+   1913  fc23		       20 db f4 	      JSR	LF4DB	;6
+   1914  fc26		       85 ef		      STA	$EF	;3
+   1915  fc28		       b9 02 fd 	      LDA	LFD02,Y	;4
+   1916  fc2b		       18		      CLC		;2
+   1917  fc2c		       65 aa		      ADC	POS_X	;3
+   1918  fc2e		       c9 97		      CMP	#$97	;2
+   1919  fc30		       b0 08		      BCS	LFC3A	;2
+   1920  fc32		       a6 e9		      LDX	$E9	;3
+   1921  fc34		       95 ab		      STA	$AB,X	;4
+   1922  fc36		       85 dc		      STA	$DC	;3
+   1923  fc38		       18		      CLC		;2
+   1924  fc39		       60		      RTS		;6
+   1925  fc3a
+   1926  fc3a		       38	   LFC3A      SEC		;2
+   1927  fc3b		       60		      RTS		;6
+   1928  fc3c
+   1929  fc3c							;; This subroutine runs when the lower, display chunk
+   1930  fc3c							;; of the screen is being drawn. It loops five times.
+   1931  fc3c							; Initialize: $D0 = 5, X = 0, for LFC42
+   1932  fc3c		       a9 05	   LFC3C      LDA	#$05	;2
+   1933  fc3e		       85 d0		      STA	$D0	;3 initialize RAM $D0 = 5
+   1934  fc40		       a2 00		      LDX	#0	;2 X = 0
+   1935  fc42							; Movement subroutine check. RAM MVMT ($8E) data masks are
+   1936  fc42							; stored in DATA0, which are then used to pull data from DATA1
+   1937  fc42							; RAM $D0 is a param here, specifying an offset in DATA0
+   1938  fc42		       a4 d0	   LFC42      LDY	$D0	;3 Y = RAM $D0 (initialized to 5)
+   1939  fc44		       b9 74 fc 	      LDA	DATA0,Y	;4 A = DATA0[Y]
+   1940  fc47		       a8		      TAY		;2 move data to Y
+   1941  fc48		       a5 8e		      LDA	MVMT	;3 (load eye ptr base?)
+   1942  fc4a		       39 7a fc 	      AND	DATA1,Y	;4 AND A with DATA1[Y]
+   1943  fc4d		       f0 12		      BEQ	LFC61	;2 jump if above result is zero
+   1944  fc4f		       a5 aa		      LDA	POS_X	;3
+   1945  fc51		       c0 02		      CPY	#$02	;2
+   1946  fc53		       90 02		      BCC	LFC57	;2
+   1947  fc55		       a5 b5		      LDA	POS_Y	;3
+   1948  fc57		       dd 68 fc    LFC57      CMP	LFC68,X	;4
+   1949  fc5a		       f0 49		      BEQ	LFCA5	;2
+   1950  fc5c		       dd 69 fc 	      CMP	LFC69,X	;4
+   1951  fc5f		       f0 1d		      BEQ	LFC7E	;2
+   1952  fc61		       e8	   LFC61      INX		;2 increment X twice (w/ below)
+   1953  fc62		       e8		      INX		;2
+   1954  fc63		       c6 d0		      DEC	$D0	;5 decrement $D0
+   1955  fc65		       10 db		      BPL	LFC42	;2
+   1956  fc67		       60	   LFC67      RTS		;6
+   1957  fc68
+   1958  fc68		       54	   LFC68      .byte.b	$54
+   1959  fc69		       5c a4 ac 58*LFC69      .byte.b	$5C,$A4,$AC,$58,$4F,$A8,$9F,$4F,$47,$48,$50
+   1960  fc74							;LFC74:
+   1961  fc74		       01 00 03 03*DATA0      .byte.b	$01,$00,$03,$03,$02,$02
+   1962  fc7a							;DATA1:
+   1963  fc7a		       40 80 10 20 DATA1      .byte.b	$40,$80,$10,$20
+   1964  fc7e		       24 88	   LFC7E      BIT	$88	;3
+   1965  fc80		       10 e5		      BPL	LFC67	;2
+   1966  fc82		       98		      TYA		;2
+   1967  fc83		       09 80		      ORA	#$80	;2
+   1968  fc85		       c5 88		      CMP	$88	;3
+   1969  fc87		       f0 04		      BEQ	LFC8D	;2
+   1970  fc89		       a5 97		      LDA	$97	;3
+   1971  fc8b		       85 9c		      STA	$9C	;3
+   1972  fc8d		       20 d8 fc    LFC8D      JSR	LFCD8	;6
+   1973  fc90		       84 88		      STY	$88	;3
+   1974  fc92		       b9 d0 ff 	      LDA	LFFD0,Y	;4
+   1975  fc95		       18		      CLC		;2
+   1976  fc96		       65 9c		      ADC	$9C	;3
+   1977  fc98		       85 9c		      STA	$9C	;3
+   1978  fc9a		       a9 ff		      LDA	#STKTOP	;2
+   1979  fc9c		       85 97		      STA	$97	;3
+   1980  fc9e		       20 0a fd 	      JSR	LFD0A	;6
+   1981  fca1		       a2 08		      LDX	#$08	;2
+   1982  fca3		       d0 2c		      BNE	LFCD1	;2
+   1983  fca5		       24 88	   LFCA5      BIT	$88	;3
+   1984  fca7		       30 be		      BMI	LFC67	;2
+   1985  fca9		       98		      TYA		;2
+   1986  fcaa		       20 a6 fd 	      JSR	LFDA6	;6
+   1987  fcad		       f0 04		      BEQ	LFCB3	;2
+   1988  fcaf		       a5 9a		      LDA	$9A	;3
+   1989  fcb1		       d0 13		      BNE	LFCC6	;2
+   1990  fcb3		       a4 d6	   LFCB3      LDY	$D6	;3
+   1991  fcb5		       b9 d0 ff 	      LDA	LFFD0,Y	;4
+   1992  fcb8		       18		      CLC		;2
+   1993  fcb9		       65 9c		      ADC	$9C	;3
+   1994  fcbb		       85 97		      STA	$97	;3
+   1995  fcbd		       98		      TYA		;2
+   1996  fcbe		       09 80		      ORA	#$80	;2
+   1997  fcc0		       85 88		      STA	$88	;3
+   1998  fcc2		       a2 04		      LDX	#$04	;2
+   1999  fcc4		       d0 0b		      BNE	LFCD1	;2
+   2000  fcc6
+   2001  fcc6							; a draw sprite routine. this contains the only
+   2002  fcc6							; reference to the main block of data containing
+   2003  fcc6							; the various item and monster sprites
+   2004  fcc6		       a5 d6	   LFCC6      LDA	$D6	;3
+   2005  fcc8		       4a		      LSR		;2
+   2006  fcc9		       aa		      TAX		;2
+   2007  fcca		       bd 06 fe 	      LDA	SPRITES0,X	;4
+   2008  fccd		       85 91		      STA	$91	;3
+   2009  fccf		       a2 02		      LDX	#$02	;2
+   2010  fcd1		       a5 cc	   LFCD1      LDA	GAMEMODE	;3
+   2011  fcd3		       f0 92		      BEQ	LFC67	;2
+   2012  fcd5		       4c 8c f8 	      JMP	LF88C	;3
+   2013  fcd8		       84 d5	   LFCD8      STY	$D5	;3
+   2014  fcda		       a5 cc		      LDA	GAMEMODE	;3
+   2015  fcdc		       c9 05		      CMP	#$05	;2
+   2016  fcde		       90 1f		      BCC	LFCFF	;2
+   2017  fce0		       b9 06 fd 	      LDA	LFD06,Y	;4
+   2018  fce3		       09 10		      ORA	#$10	;2
+   2019  fce5		       85 d0		      STA	$D0	;3
+   2020  fce7		       98		      TYA		;2
+   2021  fce8		       20 a6 fd 	      JSR	LFDA6	;6
+   2022  fceb		       48		      PHA		;3
+   2023  fcec		       a5 d0		      LDA	$D0	;3
+   2024  fcee		       05 d8		      ORA	$D8	;3
+   2025  fcf0		       85 d0		      STA	$D0	;3
+   2026  fcf2		       68		      PLA		;4
+   2027  fcf3		       f0 07		      BEQ	LFCFC	;2
+   2028  fcf5		       a2 00		      LDX	#0	;2
+   2029  fcf7		       20 49 fb 	      JSR	LFB49	;6
+   2030  fcfa		       30 03		      BMI	LFCFF	;2
+   2031  fcfc		       20 47 fb    LFCFC      JSR	LFB47	;6
+   2032  fcff		       a4 d5	   LFCFF      LDY	$D5	;3
+   2033  fd01		       60		      RTS		;6
+   2034  fd02
+   2035  fd02		       00	   LFD02      .byte.b	$00
+   2036  fd03		       0a 00 f6    LFD03      .byte.b	$0A,$00,$F6
+   2037  fd06		       00 40 80 c0 LFD06      .byte.b	$00,$40,$80,$C0
+   2038  fd0a		       a9 02	   LFD0A      LDA	#$02	;2
+   2039  fd0c		       20 6c fd 	      JSR	LFD6C	;6
+   2040  fd0f		       85 8b		      STA	$8B	;3
+   2041  fd11		       a9 03		      LDA	#$03	;2
+   2042  fd13		       20 6c fd 	      JSR	LFD6C	;6
+   2043  fd16		       85 8c		      STA	$8C	;3
+   2044  fd18		       a9 00		      LDA	#0	;2
+   2045  fd1a		       20 6c fd 	      JSR	LFD6C	;6
+   2046  fd1d		       f0 06		      BEQ	LFD25	;2
+   2047  fd1f		       a9 47		      LDA	#$47	;2
+   2048  fd21		       a2 3f		      LDX	#$3F	;2
+   2049  fd23		       d0 04		      BNE	LFD29	;2
+   2050  fd25		       a9 4f	   LFD25      LDA	#$4F	;2
+   2051  fd27		       a2 57		      LDX	#$57	;2
+   2052  fd29		       85 cf	   LFD29      STA	$CF	;3
+   2053  fd2b		       86 de		      STX	$DE	;3
+   2054  fd2d		       a4 8d		      LDY	FLOORNO	;3
+   2055  fd2f		       a5 9c		      LDA	$9C	;3
+   2056  fd31		       20 4c fd 	      JSR	LFD4C	;6
+   2057  fd34		       b0 0c		      BCS	LFD42	;2
+   2058  fd36		       f0 02		      BEQ	LFD3A	;2
+   2059  fd38		       a9 04		      LDA	#$04	;2
+   2060  fd3a		       a6 9c	   LFD3A      LDX	$9C	;3
+   2061  fd3c		       1d 46 fd 	      ORA	LFD46,X	;4
+   2062  fd3f		       85 9b	   LFD3F      STA	$9B	;3
+   2063  fd41		       60		      RTS		;6
+   2064  fd42
+   2065  fd42		       a9 0f	   LFD42      LDA	#$0F	;2
+   2066  fd44		       d0 f9		      BNE	LFD3F	;2
+   2067  fd46		       03	   LFD46      .byte.b	$03	;.SLO;8
+   2068  fd47		       03		      .byte.b	$03	;.SLO;8
+   2069  fd48		       01 00		      ORA	($00,X)	;6
+   2070  fd4a		       02		      .byte.b	$02	;.JAM;0
+   2071  fd4b		       02		      .byte.b	$02	;.JAM;0
+   2072  fd4c		       85 d8	   LFD4C      STA	$D8	;3
+   2073  fd4e		       98		      TYA		;2
+   2074  fd4f		       20 ca fd 	      JSR	LFDCA	;6
+   2075  fd52		       84 d7		      STY	$D7	;3
+   2076  fd54		       b9 dd fd 	      LDA	LFDDD,Y	;4
+   2077  fd57		       a4 d8		      LDY	$D8	;3
+   2078  fd59		       39 00 fe 	      AND	MASK0,Y	;4
+   2079  fd5c		       f0 0c		      BEQ	LFD6A	;2
+   2080  fd5e		       a4 d7		      LDY	$D7	;3
+   2081  fd60		       b9 e5 fd 	      LDA	LFDE5,Y	;4
+   2082  fd63		       a4 d8		      LDY	$D8	;3
+   2083  fd65		       18		      CLC		;2
+   2084  fd66		       39 00 fe 	      AND	MASK0,Y	;4
+   2085  fd69		       60		      RTS		;6
+   2086  fd6a
+   2087  fd6a		       38	   LFD6A      SEC		;2
+   2088  fd6b		       60		      RTS		;6
+   2089  fd6c
+   2090  fd6c		       85 d6	   LFD6C      STA	$D6	;3
+   2091  fd6e		       a5 8d		      LDA	FLOORNO	;3
+   2092  fd70		       85 d7		      STA	$D7	;3
+   2093  fd72		       a5 9c		      LDA	$9C	;3
+   2094  fd74		       20 9a fd 	      JSR	LFD9A	;6
+   2095  fd77		       30 4e		      BMI	LFDC7	;2
+   2096  fd79		       4a		      LSR		;2
+   2097  fd7a		       a8		      TAY		;2
+   2098  fd7b		       b9 7f fd 	      LDA	LFD7F,Y	;4
+   2099  fd7e		       60		      RTS		;6
+   2100  fd7f
+   2101  fd7f		       57 a7 4f    LFD7F      .byte.b	$57,$A7,$4F
+   2102  fd82		       04 ff 00 80*LFD82      .byte.b	$04,$FF,$00,$80,$FF,$04,$01,$81,$05,$82,$02,$00,$83,$05,$03,$01
+   2103  fd92		       06 ff 84 02*	      .byte.b	$06,$FF,$84,$02,$FF,$06,$85,$03
+   2104  fd9a		       0a	   LFD9A      ASL		;2
+   2105  fd9b		       0a		      ASL		;2
+   2106  fd9c		       18		      CLC		;2
+   2107  fd9d		       65 d6		      ADC	$D6	;3
+   2108  fd9f		       a8		      TAY		;2
+   2109  fda0		       b9 82 fd 	      LDA	LFD82,Y	;4
+   2110  fda3		       85 d8		      STA	$D8	;3
+   2111  fda5		       60		      RTS		;6
+   2112  fda6
+   2113  fda6		       85 d6	   LFDA6      STA	$D6	;3
+   2114  fda8		       a5 8d		      LDA	FLOORNO	;3
+   2115  fdaa		       85 d7		      STA	$D7	;3
+   2116  fdac		       a5 9c		      LDA	$9C	;3
+   2117  fdae		       20 9a fd    LFDAE      JSR	LFD9A	;6
+   2118  fdb1		       30 16		      BMI	LFDC9	;2
+   2119  fdb3		       a4 cc		      LDY	GAMEMODE	;3
+   2120  fdb5		       c0 02		      CPY	#$02	;2
+   2121  fdb7		       90 0e		      BCC	LFDC7	;2
+   2122  fdb9		       a5 d7		      LDA	$D7	;3
+   2123  fdbb		       20 ca fd 	      JSR	LFDCA	;6
+   2124  fdbe		       b9 d5 fd 	      LDA	LFDD5,Y	;4
+   2125  fdc1		       a4 d8		      LDY	$D8	;3
+   2126  fdc3		       39 00 fe 	      AND	MASK0,Y	;4
+   2127  fdc6		       60		      RTS		;6
+   2128  fdc7
+   2129  fdc7		       a9 00	   LFDC7      LDA	#0	;2
+   2130  fdc9		       60	   LFDC9      RTS		;6
+   2131  fdca
+   2132  fdca		       a4 cc	   LFDCA      LDY	GAMEMODE	;3
+   2133  fdcc		       c0 08		      CPY	#$08	;2
+   2134  fdce		       d0 03		      BNE	LFDD3	;2
+   2135  fdd0		       18		      CLC		;2
+   2136  fdd1		       69 04		      ADC	#$04	;2
+   2137  fdd3		       a8	   LFDD3      TAY		;2
+   2138  fdd4		       60		      RTS		;6
+   2139  fdd5
+   2140  fdd5							; 0dd5 |  X X	X|
+   2141  fdd5							; 0dd6 | X   XXX|
+   2142  fdd5							; 0dd7 |  XX X  |
+   2143  fdd5							; 0dd8 |  X X	X|
+   2144  fdd5							; 0dd9 |  X XXX |
+   2145  fdd5							; 0dda |   XXX X|
+   2146  fdd5							; 0ddb |  X X XX|
+   2147  fdd5							; 0ddc |    X X |
+   2148  fdd5		       29 47 34 29*LFDD5      .byte.b	$29,$47,$34,$29,$2E,$1D,$2B,$0A
+   2149  fddd
+   2150  fddd							; 0ddd |  X	X|
+   2151  fddd							; 0dde |  XXX XX|
+   2152  fddd							; 0ddf |  XXXXXX|
+   2153  fddd							; 0de0 |  X  X X|
+   2154  fddd							; 0de1 |  X X X |
+   2155  fddd							; 0de2 |  XXXXXX|
+   2156  fddd							; 0de3 |  XXXXXX|
+   2157  fddd							; 0de4 |  X X X |
+   2158  fddd		       21 3b 3f 25*LFDDD      .byte.b	$21,$3B,$3F,$25,$2A,$3F,$3F,$2A
+   2159  fde5
+   2160  fde5							; 0de5 |  X	X|
+   2161  fde5							; 0de6 |   XX X |
+   2162  fde5							; 0de7 |  X  X X|
+   2163  fde5							; 0de8 |	 |
+   2164  fde5							; 0de9 |  X X X |
+   2165  fde5							; 0dea |   X X X|
+   2166  fde5							; 0deb |  X X X |
+   2167  fde5		       21 1a 25 00*LFDE5      .byte.b	$21,$1A,$25,$00,$2A,$15,$2A
+   2168  fdec
+   2169  fdec							; 0dec |	 |
+   2170  fdec							; 0ded |XXXXX X |
+   2171  fdec							; 0dee |XXXXX X |
+   2172  fdec							; 0def |     XX |
+   2173  fdec							; 0df0 |     XX |
+   2174  fdec		       00 fa fa 06*LFDEC      .byte.b	$00,$FA,$FA,$06,$06
+   2175  fdf1
+   2176  fdf1							; 0df1 |	 |
+   2177  fdf1							; 0df2 |XXXXXXX |
+   2178  fdf1							; 0df3 |     XX |
+   2179  fdf1							; 0df4 |XXXXXXX |
+   2180  fdf1							; 0df5 |     XX |
+   2181  fdf1		       00 fe 06 fe*LFDF1      .byte.b	$00,$FE,$06,$FE,$06
+   2182  fdf6
+   2183  fdf6							;0df1 |	|
+   2184  fdf6							;0df2 |XXXXXXX |
+   2185  fdf6							;0df3 |     XX |
+   2186  fdf6							;0df4 |XXXXXXX |
+   2187  fdf6							;0df5 |     XX |
+   2188  fdf6							;LFDF6:
+   2189  fdf6		       09 ff 7f 02*DATA2      .byte.b	$09,$FF,$7F,$02,$FF,$0F,$02,$02,$03,$04
+   2190  fe00
+   2191  fe00							; This has something to do with the scan line
+   2192  fe00							; playfield floorplan rendering routine. possible
+   2193  fe00							; used as a bitmask for selecting the proper
+   2194  fe00							; scanline <-> floorplan sprite mapping?
+   2195  fe00							;
+   2196  fe00							; Another note: since the floorplan scrolls with the
+   2197  fe00							; user (the whole room isn't displayed at once) only
+   2198  fe00							; a part of it is showing. It looks like only five
+   2199  fe00							; blocks of the floorplan (see FLOOR0 data) are rendered
+   2200  fe00							; on-screen at a time and a last (non-floor one) reserved
+   2201  fe00							; for the score and collected items. So that would explain
+   2202  fe00							; why there are six 1 bits set here here.
+   2203  fe00							;
+   2204  fe00							;0e00 |       X|
+   2205  fe00							;0e01 |      X |
+   2206  fe00							;0e02 |     X	|
+   2207  fe00							;0e03 |    X	|
+   2208  fe00							;0e04 |   X	|
+   2209  fe00							;0e05 |  X	|
+   2210  fe00							;LFE00:
+   2211  fe00		       01 02 04 08*MASK0      .byte.b	$01,$02,$04,$08,$10,$20
+   2212  fe06
+   2213  fe06							;0e06 | X	|
+   2214  fe06							;0e07 |X	|
+   2215  fe06							;0e08 |	|
+   2216  fe06							;0e09 |	|
+   2217  fe06							;0e0a |     XXX|
+   2218  fe06							;0e0b |XXXXXX X|
+   2219  fe06							;0e0c |X X  XXX|
+   2220  fe06							;0e0d |	|
+   2221  fe06							;0e0e |	|
+   2222  fe06							;0e0f |	|
+   2223  fe06							;0e10 |       X|
+   2224  fe06							;0e11 |      X |
+   2225  fe06							;0e12 |     X	|
+   2226  fe06							;0e13 |  X X	|
+   2227  fe06							;0e14 |X  X	|
+   2228  fe06							;0e15 | XX X	|
+   2229  fe06							;0e16 | XX	|
+   2230  fe06							;0e17 |X  X	|
+   2231  fe06							;0e18 |	|
+   2232  fe06							;0e19 |	|
+   2233  fe06							;0e1a |  X	|
+   2234  fe06							;0e1b |XXXX	|
+   2235  fe06							;0e1c |X X	|
+   2236  fe06							;0e1d |XXX	|
+   2237  fe06							;0e1e |	|
+   2238  fe06							;0e1f |	|
+   2239  fe06							;0e20 |  XXXX	|
+   2240  fe06							;0e21 |   XX	|
+   2241  fe06							;0e22 |   XX	|
+   2242  fe06							;0e23 |    X	|
+   2243  fe06							;0e24 |   XX	|
+   2244  fe06							;0e25 |   X	|
+   2245  fe06							;0e26 |  XXXX	|
+   2246  fe06							;0e27 |   XX	|
+   2247  fe06							;0e28 |	|
+   2248  fe06							;0e29 |	|
+   2249  fe06							;0e2a |     X	|
+   2250  fe06							;0e2b |     XXX|
+   2251  fe06							;0e2c |     XX |
+   2252  fe06							;0e2d |    XXXX|
+   2253  fe06							;0e2e |	|
+   2254  fe06							;0e2f |	|
+   2255  fe06							;0e30 |  XXXX	|
+   2256  fe06							;0e31 |   XX	|
+   2257  fe06							;0e32 |  XXX	|
+   2258  fe06							;0e33 |XXXXX	|
+   2259  fe06							;0e34 |X XXX	|
+   2260  fe06							;0e35 |XXXX	|
+   2261  fe06							;0e36 |  XXXX	|
+   2262  fe06							;0e37 |   XX	|
+   2263  fe06							;0e38 |	|
+   2264  fe06							;0e39 |	|
+   2265  fe06							;0e3a |  X  X	|
+   2266  fe06							;0e3b |XXXX XXX|
+   2267  fe06							;0e3c |X X  X X|
+   2268  fe06							;0e3d |XXX XXXX|
+   2269  fe06							;0e3e |	|
+   2270  fe06							;0e3f |	|
+   2271  fe06							;0e40 |  XXXX	|
+   2272  fe06							;0e41 |   XX	|
+   2273  fe06							;0e42 |   XXX	|
+   2274  fe06							;0e43 |    XXXX|
+   2275  fe06							;0e44 |   XXX X|
+   2276  fe06							;0e45 |   XXXXX|
+   2277  fe06							;0e46 |  XXXX	|
+   2278  fe06							;0e47 |   XX	|
+   2279  fe06
+   2280  fe06							;0e48 |  XXXX	|
+   2281  fe06							;0e49 |   XX	|
+   2282  fe06							;0e4a |  XXXX	|
+   2283  fe06							;0e4b |XXXXXXXX|
+   2284  fe06							;0e4c |X XXXX X|
+   2285  fe06							;0e4d |XXXXXXXX|
+   2286  fe06							;0e4e |  XXXX	|
+   2287  fe06							;0e4f |   XX	|
+   2288  fe06							;0e50 |	|
+   2289  fe06							;0e51 |	|
+   2290  fe06							;0e52 |	|
+   2291  fe06							;0e53 |    XX	|
+   2292  fe06							;0e54 |  XXXX	|
+   2293  fe06							;0e55 | XXXXX	|
+   2294  fe06							;0e56 | XXXXX X|
+   2295  fe06							;0e57 | XXXXXX |
+   2296  fe06							;0e58 |XX X X	|
+   2297  fe06							;0e59 |X XXX	|
+   2298  fe06							;0e5a |	|
+   2299  fe06							;0e5b |	|
+   2300  fe06							;0e5c |XXX	|
+   2301  fe06							;0e5d | XXXX	|
+   2302  fe06							;0e5e |  XXXX	|
+   2303  fe06							;0e5f |  XXXXX |
+   2304  fe06							;0e60 |  XXXXX |
+   2305  fe06							;0e61 |X XXXXX |
+   2306  fe06							;0e62 | XX X XX|
+   2307  fe06							;0e63 |   XXX X|
+   2308  fe06
+   2309  fe06							;0e64 |X      X|
+   2310  fe06							;0e65 |X      X|
+   2311  fe06							;0e66 |XX    XX|
+   2312  fe06							;0e67 | XX  XX |
+   2313  fe06							;0e68 | XXXXXX |
+   2314  fe06							;0e69 |  XXXX	|
+   2315  fe06							;0e6a |	|
+   2316  fe06							;0e6b |	|
+   2317  fe06							;0e6c |	|
+   2318  fe06							;0e6d |	|
+   2319  fe06							;0e6e |	|
+   2320  fe06							;0e6f |	|
+   2321  fe06							;0e70 |	|
+   2322  fe06							;0e71 |	|
+   2323  fe06							;0e72 |  XXXX	|
+   2324  fe06							;0e73 | XXXXXX |
+   2325  fe06							;0e74 | XX  XX |
+   2326  fe06							;0e75 |XX    XX|
+   2327  fe06							;0e76 |X      X|
+   2328  fe06							;0e77 |X      X|
+   2329  fe06
+   2330  fe06							;0e78 |  X  X	|
+   2331  fe06							;0e79 |  X  X	|
+   2332  fe06							;0e7a |  X  X	|
+   2333  fe06							;0e7b |X  XX  X|
+   2334  fe06							;0e7c | XXXXXX |
+   2335  fe06							;0e7d |   XX	|
+   2336  fe06							;0e7e | XX  XX |
+   2337  fe06							;0e7f |X      X|
+   2338  fe06							;0e80 |	|
+   2339  fe06							;0e81 |	|
+   2340  fe06							;0e82 |	|
+   2341  fe06							;0e83 |	|
+   2342  fe06							;0e84 |XXX  XXX|
+   2343  fe06							;0e85 |   XX	|
+   2344  fe06							;0e86 | XXXXXX |
+   2345  fe06							;0e87 |X  XX  X|
+   2346  fe06							;0e88 |  X  X	|
+   2347  fe06							;0e89 | X    X |
+   2348  fe06							;0e8a | X    X |
+   2349  fe06							;0e8b |	|
+   2350  fe06							;0e8c |X XX XXX|
+   2351  fe06							;0e8d |X XX XXX|
+   2352  fe06							;0e8e |X XX XXX|
+   2353  fe06							;0e8f |X XX XXX|
+   2354  fe06							;0e90 |X XX XXX|
+   2355  fe06							;0e91 |X XX XXX|
+   2356  fe06							;0e92 |X XX XXX|
+   2357  fe06							;0e93 |X XX XXX|
+   2358  fe06							;0e94 |X XX XXX|
+   2359  fe06							;0e95 |X XX XXX|
+   2360  fe06							;0e96 |X XX XXX|
+   2361  fe06							;0e97 |X XX XXX|
+   2362  fe06							;0e98 |X XX XXX|
+   2363  fe06							;0e99 |X XX XXX|
+   2364  fe06							;0e9a |X XX XXX|
+   2365  fe06							;0e9b |X XX XXX|
+   2366  fe06							;0e9c |X XX XXX|
+   2367  fe06							;0e9d |XXX XX X|
+   2368  fe06							;0e9e |XXX XX X|
+   2369  fe06							;0e9f |XXX XX X|
+   2370  fe06							;0ea0 |XXX XX X|
+   2371  fe06							;0ea1 |XXX XX X|
+   2372  fe06							;0ea2 |XXX XX X|
+   2373  fe06							;0ea3 |XXX XX X|
+   2374  fe06							;0ea4 |XXX XX X|
+   2375  fe06							;0ea5 |XXX XX X|
+   2376  fe06							;0ea6 |XXX XX X|
+   2377  fe06							;0ea7 |XXX XX X|
+   2378  fe06							;0ea8 |XXX XX X|
+   2379  fe06							;0ea9 |XXX XX X|
+   2380  fe06							;0eaa |XXX XX X|
+   2381  fe06							;0eab |XXX XX X|
+   2382  fe06							;0eac |XXX XX X|
+   2383  fe06							;0ead |XXX XX X|
+   2384  fe06							;0eae |XXXXXXXX|
+   2385  fe06							;0eaf |XXXXXXXX|
+   2386  fe06							;0eb0 |XXXXXXXX|
+   2387  fe06							;0eb1 |XXXXXXXX|
+   2388  fe06							;0eb2 |XXXXXXXX|
+   2389  fe06							;0eb3 |XXXXXXXX|
+   2390  fe06							;0eb4 |	|
+   2391  fe06							;0eb5 |	|
+   2392  fe06							;0eb6 |XXXXXXXX|
+   2393  fe06							;0eb7 |XXXXXXXX|
+   2394  fe06							;0eb8 |XXXXXXXX|
+   2395  fe06							;0eb9 |XXXXXXXX|
+   2396  fe06							;0eba |	|
+   2397  fe06							;0ebb |	|
+   2398  fe06							;0ebc |XXXXXXXX|
+   2399  fe06							;0ebd |XXXXXXXX|
+   2400  fe06							;0ebe |	|
+   2401  fe06							;0ebf |XXXXXXXX|
+   2402  fe06							;0ec0 |XXXXXXXX|
+   2403  fe06							;0ec1 |	|
+   2404  fe06							;0ec2 |	|
+   2405  fe06							;0ec3 |XXXXXXXX|
+   2406  fe06							;0ec4 |XXXXXXXX|
+   2407  fe06							;0ec5 |XXXXXXXX|
+   2408  fe06							;0ec6 |XXXXXXXX|
+   2409  fe06							;0ec7 |	|
+   2410  fe06							;0ec8 |	|
+   2411  fe06							;0ec9 |XXXXXXXX|
+   2412  fe06							;0eca |XXXXXXXX|
+   2413  fe06							;0ecb |XXXXXXXX|
+   2414  fe06							;0ecc |XXXXXXXX|
+   2415  fe06							;0ecd |XXXXXXXX|
+   2416  fe06							;0ece |XXXXXXXX|
+   2417  fe06							;0ecf |	|
+   2418  fe06							;LFE06:
+   2419  fe06				   SPRITES0
+   2420  fe06		       40 80 00 00*	      .byte.b	$40,$80,$00,$00,$07,$FD,$A7,$00,$00,$00,$01,$02,$04,$28,$90,$68
+   2421  fe16		       60 90 00 00*	      .byte.b	$60,$90,$00,$00,$20,$F0,$A0,$E0,$00,$00,$3C,$18,$18,$08,$18,$10
+   2422  fe26		       3c 18 00 00*	      .byte.b	$3C,$18,$00,$00,$04,$07,$06,$0F,$00,$00,$3C,$18,$38,$F8,$B8,$F0
+   2423  fe36		       3c 18 00 00*	      .byte.b	$3C,$18,$00,$00,$24,$F7,$A5,$EF,$00,$00,$3C,$18,$1C,$0F,$1D,$1F
+   2424  fe46		       3c 18 3c 18*	      .byte.b	$3C,$18,$3C,$18,$3C,$FF,$BD,$FF,$3C,$18,$00,$00,$00,$0C,$3C,$7C
+   2425  fe56		       7d 7e d4 b8*	      .byte.b	$7D,$7E,$D4,$B8,$00,$00,$E0,$78,$3C,$3E,$3E,$BE,$6B,$1D,$81,$81
+   2426  fe66		       c3 66 7e 3c*	      .byte.b	$C3,$66,$7E,$3C,$00,$00,$00,$00,$00,$00,$00,$00,$3C,$7E,$66,$C3
+   2427  fe76		       81 81 24 24*	      .byte.b	$81,$81,$24,$24,$24,$99,$7E,$18,$66,$81,$00,$00,$00,$00,$E7,$18
+   2428  fe86		       7e 99 24 42*	      .byte.b	$7E,$99,$24,$42,$42,$00,$B7,$B7,$B7,$B7,$B7,$B7,$B7,$B7,$B7,$B7
+   2429  fe96		       b7 b7 b7 b7*	      .byte.b	$B7,$B7,$B7,$B7,$B7,$B7,$B7,$ED,$ED,$ED,$ED,$ED,$ED,$ED,$ED,$ED
+   2430  fea6		       ed ed ed ed*	      .byte.b	$ED,$ED,$ED,$ED,$ED,$ED,$ED,$ED,$FF,$FF,$FF,$FF,$FF,$FF,$00,$00
+   2431  feb6		       ff ff ff ff*	      .byte.b	$FF,$FF,$FF,$FF,$00,$00,$FF,$FF,$00,$FF,$FF,$00,$00,$FF,$FF,$FF
+   2432  fec6		       ff 00 00 ff*	      .byte.b	$FF,$00,$00,$FF,$FF,$FF,$FF,$FF,$FF,$00
+   2433  fed0
+   2434  fed0							; These top blocks are the playfield. They're organized in groups
+   2435  fed0							; of three, PF0, PF1, PF2. Indexed from LF647 by X. We have three ROM
+   2436  fed0							; references into this block, one for each of the three pieces of the
+   2437  fed0							; playfield we draw.
+   2438  fed0							;0ed0 |XXXXXXXX|
+   2439  fed0							;0ed1 |XXXX	|
+   2440  fed0							;0ed2 |XXXXXXXX|
+   2441  fed0							;
+   2442  fed0							;0ed3 |XXXXXXXX|
+   2443  fed0							;0ed4 |	|
+   2444  fed0							;0ed5 |XXXX	|
+   2445  fed0							;
+   2446  fed0							;0ed6 |XXXXXXXX|
+   2447  fed0							;0ed7 |	|
+   2448  fed0							;0ed8 |XXXX	|
+   2449  fed0							;
+   2450  fed0							;0ed9 |XXXXXXXX|
+   2451  fed0							;0eda |	|
+   2452  fed0							;0edb |	|
+   2453  fed0							;
+   2454  fed0							;0edc |XXXXXXXX|
+   2455  fed0							;0edd |	|
+   2456  fed0							;0ede |XXXX	|
+   2457  fed0							;
+   2458  fed0							;0edf |XXXXXXXX|
+   2459  fed0							;0ee0 |XXXX	|
+   2460  fed0							;0ee1 |XXXXXXXX|
+   2461  fed0							;
+   2462  fed0							;0ee2 |XXXXXXXX|
+   2463  fed0							;0ee3 |	|
+   2464  fed0							;0ee4 |XXXX	|
+   2465  fed0							; Thinnest level walls (side doors)
+   2466  fed0							;0ee5 |   X	|
+   2467  fed0							;0ee6 |	|
+   2468  fed0							;0ee7 |	|
+   2469  fed0							; ...
+   2470  fed0							;0ee8 |XXXXXXXX|
+   2471  fed0							;0ee9 |	|
+   2472  fed0							;0eea |XXXX	|
+   2473  fed0							;0eeb |XXXXXXXX|
+   2474  fed0							;0eec |	|
+   2475  fed0							;0eed |XXXX	|
+   2476  fed0							;0eee |XXXXXXXX|
+   2477  fed0							;0eef |XXXX	|
+   2478  fed0							;0ef0 |XXXXXXXX|
+   2479  fed0							;0ef1 |XXXXXXXX|
+   2480  fed0							;0ef2 |	|
+   2481  fed0							;0ef3 |XXXX	|
+   2482  fed0							;0ef4 |XXXXXXXX|
+   2483  fed0							;0ef5 |	|
+   2484  fed0							;0ef6 |XXXX	|
+   2485  fed0							;0ef7 |XXXXXXXX|
+   2486  fed0							;0ef8 |	|
+   2487  fed0							;0ef9 |	|
+   2488  fed0							;0efa |XXXXXXXX|
+   2489  fed0							;0efb |	|
+   2490  fed0							;0efc |XXXX	|
+   2491  fed0							;0efd |XXXXXXXX|
+   2492  fed0							;0efe |XXXX	|
+   2493  fed0							;0eff |XXXXXXXX|
+   2494  fed0
+   2495  fed0							;0f00 |   XXX	|
+   2496  fed0							;0f01 |  XXXXX |
+   2497  fed0							;0f02 | XXX  XX|
+   2498  fed0							;0f03 | XX   XX|
+   2499  fed0							;0f04 | XX   XX|
+   2500  fed0							;0f05 | XX  XXX|
+   2501  fed0							;0f06 |  XXXXX |
+   2502  fed0							;0f07 |   XXX	|
+   2503  fed0							;0f08 |  XXXXX |
+   2504  fed0							;0f09 |   XXX	|
+   2505  fed0							;0f0a |    XX	|
+   2506  fed0							;0f0b |    XX	|
+   2507  fed0							;0f0c |    XX	|
+   2508  fed0							;0f0d |  XXXX	|
+   2509  fed0							;0f0e |   XXX	|
+   2510  fed0							;0f0f |    XX	|
+   2511  fed0							;0f10 | XXXXXXX|
+   2512  fed0							;0f11 | XX	|
+   2513  fed0							;0f12 | XXX	|
+   2514  fed0							;0f13 |  XXXXX |
+   2515  fed0							;0f14 |      XX|
+   2516  fed0							;0f15 |  XX  XX|
+   2517  fed0							;0f16 | XX  XXX|
+   2518  fed0							;0f17 |  XXXXX |
+   2519  fed0							;0f18 |  XXXXX |
+   2520  fed0							;0f19 | XX  XXX|
+   2521  fed0							;0f1a |  XX  XX|
+   2522  fed0							;0f1b |     XX |
+   2523  fed0							;0f1c |    XX	|
+   2524  fed0							;0f1d |     XXX|
+   2525  fed0							;0f1e |  XX  XX|
+   2526  fed0							;0f1f |   XXXX |
+   2527  fed0							;0f20 |    XXXX|
+   2528  fed0							;0f21 |     XX |
+   2529  fed0							;0f22 |XXXXXXXX|
+   2530  fed0							;0f23 |XX   XX |
+   2531  fed0							;0f24 | XX  XX |
+   2532  fed0							;0f25 | XX  XX |
+   2533  fed0							;0f26 |XXX  XX |
+   2534  fed0							;0f27 |     XXX|
+   2535  fed0							;0f28 |  XXXXX |
+   2536  fed0							;0f29 | XX  XXX|
+   2537  fed0							;0f2a |  XX  XX|
+   2538  fed0							;0f2b |      XX|
+   2539  fed0							;0f2c |  XXXXX |
+   2540  fed0							;0f2d |  XX	|
+   2541  fed0							;0f2e |  XXX	|
+   2542  fed0							;0f2f |   XXXXX|
+   2543  fed0							;0f30 |  XXXXX |
+   2544  fed0							;0f31 | XXX  XX|
+   2545  fed0							;0f32 | XX  XXX|
+   2546  fed0							;0f33 | XXXXXX |
+   2547  fed0							;0f34 | XX	|
+   2548  fed0							;0f35 | XX  XXX|
+   2549  fed0							;0f36 |  XX  XX|
+   2550  fed0							;0f37 |   XXXX |
+   2551  fed0							;0f38 |  XXXX	|
+   2552  fed0							;0f39 |   XX	|
+   2553  fed0							;0f3a |    XX	|
+   2554  fed0							;0f3b |    XX	|
+   2555  fed0							;0f3c |     XX |
+   2556  fed0							;0f3d |     XX |
+   2557  fed0							;0f3e |XX    XX|
+   2558  fed0							;0f3f | XXXXXXX|
+   2559  fed0							;0f40 |  XXXXX |
+   2560  fed0							;0f41 | XX  XXX|
+   2561  fed0							;0f42 |XX    XX|
+   2562  fed0							;0f43 |XX  XXXX|
+   2563  fed0							;0f44 | XXXXXX |
+   2564  fed0							;0f45 | XXX  XX|
+   2565  fed0							;0f46 | XX  XX |
+   2566  fed0							;0f47 |  XXXX	|
+   2567  fed0							;0f48 |  XXXX	|
+   2568  fed0							;0f49 | XX  XX |
+   2569  fed0							;0f4a |      XX|
+   2570  fed0							;0f4b |  XXXXXX|
+   2571  fed0							;0f4c | XXX  XX|
+   2572  fed0							;0f4d | XX   XX|
+   2573  fed0							;0f4e | XX  XX |
+   2574  fed0							;0f4f |  XXXX	|
+   2575  fed0
+   2576  fed0							; Big torch
+   2577  fed0							; Displays 2/3 of torch draws
+   2578  fed0							;0f50 |  XXXX	|
+   2579  fed0							;0f51 |  XXXX	|
+   2580  fed0							;0f52 |  XXXX	|
+   2581  fed0							;0f53 |  XXXX	|
+   2582  fed0							;0f54 | XXXXXX |
+   2583  fed0							;0f55 | XXXXXX |
+   2584  fed0							;0f56 | XXXXXX |
+   2585  fed0							;0f57 | XXXXXX |
+   2586  fed0							;0f58 |XXXXXXXX|
+   2587  fed0							;0f59 |XXXXXXXX|
+   2588  fed0							;0f5a |XXXXXXXX|
+   2589  fed0							;0f5b |XXXXXXXX|
+   2590  fed0							;0f5c |XXXXXXXX|
+   2591  fed0							;0f5d |XXXXXXXX|
+   2592  fed0							;0f5e |XXXXXXXX|
+   2593  fed0							;0f5f |XXXXXXXX|
+   2594  fed0							;0f60 |XXXXXXXX|
+   2595  fed0							;0f61 |XXXXXXXX|
+   2596  fed0							;0f62 |XXXXXXXX|
+   2597  fed0							;0f63 |XXXXXXXX|
+   2598  fed0							;0f64 | XXXXXX |
+   2599  fed0							;0f65 | XXXXXX |
+   2600  fed0							;0f66 | XXXXXX |
+   2601  fed0							;0f67 | XXXXXX |
+   2602  fed0							;0f68 |  XXXX	|
+   2603  fed0							;0f69 |  XXXX	|
+   2604  fed0							;0f6a |  XXXX	|
+   2605  fed0							;0f6b |  XXXX	|
+   2606  fed0
+   2607  fed0							; Little torch
+   2608  fed0							; Displays 1/3 of torch draws
+   2609  fed0							;0f6c |   XX	|
+   2610  fed0							;0f6d |   XX	|
+   2611  fed0							;0f6e |   XX	|
+   2612  fed0							;0f6f |   XX	|
+   2613  fed0							;0f70 |  XXXX	|
+   2614  fed0							;0f71 |  XXXX	|
+   2615  fed0							;0f72 |  XXXX	|
+   2616  fed0							;0f73 |  XXXX	|
+   2617  fed0							;0f74 | XXXXXX |
+   2618  fed0							;0f75 | XXXXXX |
+   2619  fed0							;0f76 | XXXXXX |
+   2620  fed0							;0f77 | XXXXXX |
+   2621  fed0							;0f78 |XXXXXXXX|
+   2622  fed0							;0f79 |XXXXXXXX|
+   2623  fed0							;0f7a |XXXXXXXX|
+   2624  fed0							;0f7b |XXXXXXXX|
+   2625  fed0							;0f7c | XXXXXX |
+   2626  fed0							;0f7d | XXXXXX |
+   2627  fed0							;0f7e | XXXXXX |
+   2628  fed0							;0f7f | XXXXXX |
+   2629  fed0							;0f80 |  XXXX	|
+   2630  fed0							;0f81 |  XXXX	|
+   2631  fed0							;0f82 |  XXXX	|
+   2632  fed0							;0f83 |  XXXX	|
+   2633  fed0							;0f84 |   XX	|
+   2634  fed0							;0f85 |   XX	|
+   2635  fed0							;0f86 |   XX	|
+   2636  fed0							;0f87 |   XX	|
+   2637  fed0							;LFED0
+   2638  fed0		       ff	   GFX0       .byte.b	$FF
+   2639  fed1							;LFED1
+   2640  fed1		       f0	   GFX1       .byte.b	$F0
+   2641  fed2							;LFED2:
+   2642  fed2				   GFX2
+   2643  fed2		       ff ff 00 f0*	      .byte.b	$FF,$FF,$00,$F0,$FF,$00,$F0,$FF,$00,$00,$FF,$00,$F0,$FF,$F0,$FF
+   2644  fee2		       ff 00 f0 10*	      .byte.b	$FF,$00,$F0,$10,$00,$00,$FF,$00,$F0,$FF,$00,$F0,$FF,$F0,$FF,$FF
+   2645  fef2		       00 f0 ff 00*	      .byte.b	$00,$F0,$FF,$00,$F0,$FF,$00,$00,$FF,$00,$F0,$FF,$F0,$FF,$1C,$3E
+   2646  ff02		       73 63 63 67*	      .byte.b	$73,$63,$63,$67,$3E,$1C,$3E,$1C,$0C,$0C,$0C,$3C,$1C,$0C,$7F,$60
+   2647  ff12		       70 3e 03 33*	      .byte.b	$70,$3E,$03,$33,$67,$3E,$3E,$67,$33,$06,$0C,$07,$33,$1E,$0F,$06
+   2648  ff22		       ff c6 66 66*	      .byte.b	$FF,$C6,$66,$66,$E6,$07,$3E,$67,$33,$03,$3E,$30,$38,$1F,$3E,$73
+   2649  ff32		       67 7e 60 67*	      .byte.b	$67,$7E,$60,$67,$33,$1E,$3C,$18,$0C,$0C,$06,$06,$C3,$7F,$3E,$67
+   2650  ff42		       c3 cf 7e 73*	      .byte.b	$C3,$CF,$7E,$73,$66,$3C,$3C,$66,$03,$3F,$73,$63,$66,$3C,$3C,$3C
+   2651  ff52		       3c 3c 7e 7e*	      .byte.b	$3C,$3C,$7E,$7E,$7E,$7E,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+   2652  ff62		       ff ff 7e 7e*	      .byte.b	$FF,$FF,$7E,$7E,$7E,$7E,$3C,$3C,$3C,$3C,$18,$18,$18,$18,$3C,$3C
+   2653  ff72		       3c 3c 7e 7e*	      .byte.b	$3C,$3C,$7E,$7E,$7E,$7E,$FF,$FF,$FF,$FF,$7E,$7E,$7E,$7E,$3C,$3C
+   2654  ff82		       3c 3c 18 18*	      .byte.b	$3C,$3C,$18,$18,$18,$18
+   2655  ff88
+   2656  ff88							;0f88 |X	|
+   2657  ff88							;0f89 |X	|
+   2658  ff88							;0f8a |XXX XXX |
+   2659  ff88							;0f8b |      XX|
+   2660  ff88		       80 80 ee 03 LFF88      .byte.b	$80,$80,$EE,$03
+   2661  ff8c
+   2662  ff8c							;0f8c | XX XXXX|
+   2663  ff8c							;0f8d |   XXXXX|
+   2664  ff8c							;0f8e |X   X XX|
+   2665  ff8c							;0f8f |     X	|
+   2666  ff8c							;0f90 | XX XXXX|
+   2667  ff8c							;0f91 |   XXXXX|
+   2668  ff8c		       6f 1f 8b 04*LFF8C      .byte.b	$6F,$1F,$8B,$04,$6F,$1F
+   2669  ff92
+   2670  ff92
+   2671  ff92							;0f92 |XXX	|
+   2672  ff92							;0f93 |X X	|
+   2673  ff92							;0f94 |X XX	|
+   2674  ff92							;0f95 |X  X	|
+   2675  ff92							;0f96 |XX X	|
+   2676  ff92							;0f97 | X X	|
+   2677  ff92							;0f98 | XXX	|
+   2678  ff92							;0f99 | XX	|
+   2679  ff92		       e0 a0 b0 90*LFF92      .byte.b	$E0,$A0,$B0,$90,$D0,$50,$70,$60
+   2680  ff9a
+   2681  ff9a							;0f9a | X X	|
+   2682  ff9a							;0f9b | XX XX	|
+   2683  ff9a							;0f9c | X X	|
+   2684  ff9a							;0f9d | X X	|
+   2685  ff9a		       50 6c 50 50 LFF9A      .byte.b	$50,$6C,$50,$50
+   2686  ff9e
+   2687  ff9e							;0f9e |   X  XX|
+   2688  ff9e							;0f9f |   X  X |
+   2689  ff9e							;0fa0 |   X  XX|
+   2690  ff9e							;0fa1 |   X XXX|
+   2691  ff9e		       13 12 13 17 LFF9E      .byte.b	$13,$12,$13,$17
+   2692  ffa2
+   2693  ffa2							;0fa2 |    X  X|
+   2694  ffa2							;0fa3 |    X  X|
+   2695  ffa2							;0fa4 |    X XX|
+   2696  ffa2							;0fa5 |   X  X |
+   2697  ffa2		       09 09 0b 12 LFFA2      .byte.b	$09,$09,$0B,$12
+   2698  ffa6
+   2699  ffa6							;0fa6 |	|
+   2700  ffa6							;0fa7 |     XX |
+   2701  ffa6							;0fa8 |    XX X|
+   2702  ffa6							;0fa9 |    XX X|
+   2703  ffa6		       00 06 0d 0d LFFA6      .byte.b	$00,$06,$0D,$0D
+   2704  ffaa
+   2705  ffaa							;0faa | XXX X	|
+   2706  ffaa							;0fab |  X  X	|
+   2707  ffaa							;0fac | XXX X	|
+   2708  ffaa							;0fad |  X  X	|
+   2709  ffaa							;0fae | XXX X	|
+   2710  ffaa							;0faf |  X  X	|
+   2711  ffaa							;0fb0 | XXX X	|
+   2712  ffaa							;0fb1 |  X  X	|
+   2713  ffaa							;0fb2 | XXX X	|
+   2714  ffaa							;0fb3 |  X  X	|
+   2715  ffaa							;0fb4 | X  XX	|
+   2716  ffaa							;0fb5 | X  XX	|
+   2717  ffaa							;0fb6 | X  XX	|
+   2718  ffaa							;0fb7 | XXX X	|
+   2719  ffaa							;0fb8 |  X  X	|
+   2720  ffaa							;0fb9 |X  X X	|
+   2721  ffaa							;0fba |     X	|
+   2722  ffaa							;0fbb | XXX X	|
+   2723  ffaa							;0fbc |  X  X	|
+   2724  ffaa		       74 24 74 24*LFFAA      .byte.b	$74,$24,$74,$24,$74,$24,$74,$24,$74,$24,$4C,$4C,$4C,$74,$24,$94
+   2725  ffba		       04 74 24 	      .byte.b	$04,$74,$24
+   2726  ffbd
+   2727  ffbd							;0fbd |  X  X	|
+   2728  ffbd							;0fbe |  X  X	|
+   2729  ffbd							;0fbf |X    X	|
+   2730  ffbd							;0fc0 |X    X	|
+   2731  ffbd							;0fc1 |XX   X	|
+   2732  ffbd							;0fc2 |XX   X	|
+   2733  ffbd							;0fc3 | X X X	|
+   2734  ffbd							;0fc4 | X X X	|
+   2735  ffbd							;0fc5 |X X  X	|
+   2736  ffbd							;0fc6 |X X  X	|
+   2737  ffbd							;0fc7 |  X  X	|
+   2738  ffbd							;0fc8 |X    X	|
+   2739  ffbd							;0fc9 |XX   X	|
+   2740  ffbd							;0fca |	|
+   2741  ffbd							;0fcb |	|
+   2742  ffbd							;0fcc |X    X	|
+   2743  ffbd							;0fcd |X    X	|
+   2744  ffbd							;0fce |XXXX X	|
+   2745  ffbd							;0fcf |XXXX X	|
+   2746  ffbd		       24 24 84 84*LFFBD      .byte.b	$24,$24,$84,$84,$C4,$C4,$54,$54,$A4,$A4,$24,$84,$C4,$00,$00,$84
+   2747  ffcd		       84 f4 f4 	      .byte.b	$84,$F4,$F4
+   2748  ffd0
+   2749  ffd0							;0fd0 |       X|
+   2750  ffd0							;0fd1 |XXXXXXXX|
+   2751  ffd0							;0fd2 |      X |
+   2752  ffd0							;0fd3 |XXXXXXX |
+   2753  ffd0		       01 ff 02 fe LFFD0      .byte.b	$01,$FF,$02,$FE
+   2754  ffd4
+   2755  ffd4							; This looks a lot like the floor plan ...
+   2756  ffd4							;0fd4 |X XXXX X|
+   2757  ffd4							;0fd5 |   XX	|
+   2758  ffd4							;0fd6 |	|
+   2759  ffd4							;0fd7 |   XX	|
+   2760  ffd4							;0fd8 |   XX	|
+   2761  ffd4							;0fd9 |X XXXX X|
+   2762  ffd4							;0fda |   XX	|
+   2763  ffd4							;0fdb |   XX	|
+   2764  ffd4							;0fdc |	|
+   2765  ffd4							;0fdd |   XX	|
+   2766  ffd4							;0fde |X XXXX X|
+   2767  ffd4							;0fdf |   XX	|
+   2768  ffd4							;0fe0 |	|
+   2769  ffd4							;0fe1 |   XX	|
+   2770  ffd4							;0fe2 |   XX	|
+   2771  ffd4							;0fe3 |X XXXX X|
+   2772  ffd4							;LFFD4:
+   2773  ffd4		       bd 18 00 18*FLOOR0     .byte.b	$BD,$18,$00,$18,$18,$BD,$18,$18,$00,$18,$BD,$18,$00,$18,$18,$BD
+   2774  ffe4
+   2775  ffe4							;0fe4 |	|
+   2776  ffe4							;0fe5 |    XX X|
+   2777  ffe4							;0fe6 |XX X XXX|
+   2778  ffe4							;0fe7 | X   XXX|
+   2779  ffe4							;0fe8 |  XX XXX|
+   2780  ffe4							;0fe9 |X  X XXX|
+   2781  ffe4							;0fea |X X X X |
+   2782  ffe4							;0feb |XX  X	|
+   2783  ffe4							;0fec |X     X |
+   2784  ffe4							;0fed |  XX  X |
+   2785  ffe4							;0fee |X XX  X |
+   2786  ffe4							;0fef |XXXX XX |
+   2787  ffe4							;0ff0 |	|
+   2788  ffe4							;0ff1 |    XX X|
+   2789  ffe4							;0ff2 |    X X |
+   2790  ffe4							;0ff3 |    X X |
+   2791  ffe4							;0ff4 |    X X |
+   2792  ffe4							;0ff5 |    X X |
+   2793  ffe4							;0ff6 |X X X X |
+   2794  ffe4							;0ff7 |    XX X|
+   2795  ffe4							;0ff8 |      X |
+   2796  ffe4							;0ff9 |     X	|
+   2797  ffe4							;0ffa |     XX |
+   2798  ffe4							;0ffb |    X	|
+   2799  ffe4							;0ffc |	|
+   2800  ffe4							;0ffd |XXXX	|
+   2801  ffe4							;0ffe |	|
+   2802  ffe4							;0fff |XXXX	|
+   2803  ffe4		       00 0d d7 47*LFFE4      .byte.b	$00,$0D,$D7,$47,$37,$97,$AA,$C8,$82,$32,$B2,$F6,$00,$0D,$0A,$0A
+   2804  fff4		       0a 0a aa 0d*	      .byte.b	$0A,$0A,$AA,$0D,$02,$04,$06,$08,$00,$F0,$00,$F0
